@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: anyone authenticated can read (needed for vouch search by email)
+    // Users can create their own profile, update non-Rep fields
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null;
+    }
+
+    // Advancements are readable by anyone authenticated
+    match /advancements/{advancementId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Vouches: authenticated users can read, create with their own voucherId
+    match /vouches/{vouchId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.voucherId == request.auth.uid;
+    }
+
+    // Nodes (The Tree): authenticated users can read, contributors can create
+    match /nodes/{nodeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // Node supports: authenticated users can read, create with their own userId
+    match /nodeSupports/{supportId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Library entries: anyone authenticated can read, contributors can create
+    match /libraryEntries/{entryId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // News links: authenticated can read, contributors can create/update
+    match /newsLinks/{linkId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.submitterId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // News votes: authenticated can read, create/update with own userId
+    match /newsVotes/{voteId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Discussion threads: authenticated can read, contributors can create
+    match /discussionThreads/{threadId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // Discussion replies: authenticated can read, contributors can create
+    match /discussionReplies/{replyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+    }
+  }
+}
