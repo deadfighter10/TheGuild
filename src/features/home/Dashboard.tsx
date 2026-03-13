@@ -99,6 +99,95 @@ function ChatIcon({ size = 14 }: { readonly size?: number }) {
   )
 }
 
+type ChecklistItem = {
+  readonly label: string
+  readonly done: boolean
+  readonly to: string
+}
+
+function GettingStartedBanner({
+  counts,
+  hasInterests,
+  loading,
+  onDismiss,
+}: {
+  readonly counts: { readonly ideas: number; readonly threads: number; readonly entries: number; readonly links: number }
+  readonly hasInterests: boolean
+  readonly loading: boolean
+  readonly onDismiss: () => void
+}) {
+  const items: readonly ChecklistItem[] = [
+    { label: "Set your interests", done: hasInterests, to: "/profile" },
+    { label: "Explore an advancement", done: false, to: "/advancements" },
+    { label: "Browse the Library", done: false, to: "/library" },
+    { label: "Join a discussion", done: counts.threads > 0, to: "/advancements" },
+    { label: "Submit your first idea", done: counts.ideas > 0, to: "/advancements" },
+  ]
+
+  const doneCount = items.filter((i) => i.done).length
+
+  if (loading) return null
+
+  return (
+    <div className="rounded-xl border border-cyan-400/10 bg-gradient-to-r from-cyan-400/[0.04] to-violet-500/[0.04] p-6 mb-8">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white mb-1">Welcome to The Guild!</h2>
+          <p className="text-xs text-white/40">Here are some things to get you started.</p>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-white/20 hover:text-white/50 transition-colors p-1"
+          aria-label="Dismiss getting started"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-cyan-400/50 rounded-full transition-all duration-500"
+            style={{ width: `${(doneCount / items.length) * 100}%` }}
+          />
+        </div>
+        <span className="text-[10px] font-mono text-white/30">{doneCount}/{items.length}</span>
+      </div>
+
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <Link
+            key={item.label}
+            to={item.to}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.03] transition-colors"
+          >
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+              item.done
+                ? "border-cyan-400/60 bg-cyan-400/20"
+                : "border-white/15"
+            }`}>
+              {item.done && (
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </div>
+            <span className={`text-xs ${item.done ? "text-white/30 line-through" : "text-white/60"}`}>
+              {item.label}
+            </span>
+            {!item.done && (
+              <ChevronRightIcon size={10} className="ml-auto text-white/15" />
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function getActivityLabel(type: ActivityItem["type"]): string {
   switch (type) {
     case "idea": return "Idea"
@@ -110,6 +199,10 @@ function getActivityLabel(type: ActivityItem["type"]): string {
 
 export function Dashboard() {
   const { guildUser } = useAuth()
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return localStorage.getItem("guild-getting-started-dismissed") === "1" }
+    catch { return false }
+  })
 
   if (!guildUser) return null
 
@@ -182,6 +275,19 @@ export function Dashboard() {
         </div>
       </div>
 
+      {!admin && !bannerDismissed && totalContributions < 3 && (
+        <GettingStartedBanner
+          counts={counts}
+          hasInterests={guildUser.interests.length > 0}
+          loading={loading}
+          onDismiss={() => {
+            setBannerDismissed(true)
+            try { localStorage.setItem("guild-getting-started-dismissed", "1") }
+            catch { /* storage unavailable */ }
+          }}
+        />
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
         {[
           { label: "Ideas", value: counts.ideas, color: PILLAR_THEMES.tree.colorClass },
@@ -193,7 +299,7 @@ export function Dashboard() {
             <p className={`text-xl font-bold font-mono ${stat.color}`}>
               {loading ? "–" : stat.value}
             </p>
-            <p className="text-[10px] font-mono uppercase tracking-widest text-white/25 mt-1">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mt-1">
               {stat.label}
             </p>
           </div>
@@ -227,7 +333,7 @@ export function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white/70 font-medium truncate">{theme.shortName}</p>
-                      <p className="text-[11px] text-white/25 truncate">{theme.tagline}</p>
+                      <p className="text-[11px] text-white/30 truncate">{theme.tagline}</p>
                     </div>
                     <ChevronRightIcon size={12} className="text-white/15 shrink-0" />
                   </Link>
@@ -241,19 +347,19 @@ export function Dashboard() {
               <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
                 Recent Activity
               </h2>
-              <span className="font-mono text-[10px] text-white/20">
+              <span className="font-mono text-[10px] text-white/30">
                 {totalContributions} total contributions
               </span>
             </div>
 
             {loading ? (
               <div className="px-5 py-8 text-center">
-                <p className="text-sm text-white/20 font-mono">Loading...</p>
+                <p className="text-sm text-white/30 font-mono">Loading...</p>
               </div>
             ) : activity.length === 0 ? (
               <div className="px-5 py-10 text-center">
                 <p className="text-sm text-white/30 mb-1">No activity yet</p>
-                <p className="text-xs text-white/15">
+                <p className="text-xs text-white/25">
                   Start contributing to see your work here.
                 </p>
               </div>
@@ -271,7 +377,7 @@ export function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white/60 truncate">{getItemTitle(item)}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] font-mono text-white/20">{getActivityLabel(item.type)}</span>
+                          <span className="text-[10px] font-mono text-white/30">{getActivityLabel(item.type)}</span>
                           {advTheme && (
                             <>
                               <span className="text-white/10">·</span>
@@ -279,7 +385,7 @@ export function Dashboard() {
                             </>
                           )}
                           <span className="text-white/10">·</span>
-                          <span className="text-[10px] text-white/15">{timeAgo(item.data.createdAt)}</span>
+                          <span className="text-[10px] text-white/25">{timeAgo(item.data.createdAt)}</span>
                         </div>
                       </div>
                     </div>

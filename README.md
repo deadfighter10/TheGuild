@@ -110,16 +110,24 @@ bun run lint         # Type-check without emitting
 
 Pushing to `main` automatically deploys to Firebase Hosting via GitHub Actions.
 
-To set this up on your own fork:
+To set this up on your fork:
 
 1. In your Firebase project, go to **Project Settings > Service accounts**
 2. Click **Generate new private key** to download a JSON key file
 3. In your GitHub repo, go to **Settings > Secrets and variables > Actions**
 4. Add these repository secrets:
-   - `FIREBASE_SERVICE_ACCOUNT` — paste the entire JSON key file contents
-   - `FIREBASE_PROJECT_ID` — your Firebase project ID (e.g. `my-project-abc123`)
 
-Every push to `main` will: lint, test, build, then deploy hosting + Firestore rules.
+| Secret | Value |
+|--------|-------|
+| `FIREBASE_SERVICE_ACCOUNT` | Entire JSON key file contents |
+| `VITE_FIREBASE_API_KEY` | Your Firebase API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | e.g. `my-project.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | e.g. `my-project-abc123` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | e.g. `my-project.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Your sender ID |
+| `VITE_FIREBASE_APP_ID` | Your app ID |
+
+Every push to `main` will: type-check, test, build, then deploy hosting + Firestore rules.
 
 ---
 

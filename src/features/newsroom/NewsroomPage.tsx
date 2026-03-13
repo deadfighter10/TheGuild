@@ -5,6 +5,7 @@ import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { canContribute } from "@/domain/reputation"
 import { getNewsLinks, voteNewsLink, getUserVote } from "./news-service"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { SubmitLinkForm } from "./SubmitLinkForm"
 import type { NewsLink, VoteValue } from "@/domain/news-link"
 
@@ -28,6 +29,8 @@ function sortLinks(links: readonly NewsLink[], mode: NewsSortMode): readonly New
 }
 import { NewspaperIcon, AdvancementIcon } from "@/shared/components/Icons"
 import { EmptyState } from "@/shared/components/EmptyState"
+import { useToast } from "@/shared/components/Toast"
+import { SkeletonList } from "@/shared/components/Skeleton"
 
 type NewsItemProps = {
   readonly link: NewsLink
@@ -36,6 +39,7 @@ type NewsItemProps = {
 
 function NewsItem({ link, onVoted }: NewsItemProps) {
   const { guildUser } = useAuth()
+  const { toast } = useToast()
   const [userVote, setUserVote] = useState<VoteValue | null>(null)
   const [voting, setVoting] = useState(false)
   const [localScore, setLocalScore] = useState(link.score)
@@ -65,7 +69,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
         onVoted()
       }
     } catch {
-      // UI shows stale state as fallback
+      toast("Failed to vote", "error")
     } finally {
       setVoting(false)
     }
@@ -139,7 +143,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
           {link.title}
         </a>
         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-          <span className="text-[10px] font-mono text-white/20">{hostname}</span>
+          <span className="text-[10px] font-mono text-white/30">{hostname}</span>
           {theme && (
             <>
               <span className="text-white/10">·</span>
@@ -165,6 +169,9 @@ export function NewsroomPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [links, setLinks] = useState<readonly NewsLink[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [showSubmitForm, setShowSubmitForm] = useState(false)
   const [sortMode, setSortMode] = useState<NewsSortMode>("hot")
 
@@ -172,9 +179,12 @@ export function NewsroomPage() {
 
   const loadLinks = useCallback(async () => {
     setLoading(true)
+    setCursor(null)
     try {
-      const fetched = await getNewsLinks(activeAdvancement)
-      setLinks(fetched)
+      const page = await getNewsLinks(activeAdvancement)
+      setLinks(page.items)
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
     } catch {
       // UI shows stale state as fallback
     } finally {
@@ -182,11 +192,34 @@ export function NewsroomPage() {
     }
   }, [activeAdvancement])
 
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const page = await getNewsLinks(activeAdvancement, cursor)
+      setLinks((prev) => [...prev, ...page.items])
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
+    } catch {
+      // UI shows stale state as fallback
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     loadLinks()
   }, [loadLinks])
 
+  const [searchQuery, setSearchQuery] = useState("")
+
   const sortedLinks = useMemo(() => sortLinks(links, sortMode), [links, sortMode])
+
+  const filteredLinks = useMemo(() => {
+    if (!searchQuery) return sortedLinks
+    const q = searchQuery.toLowerCase()
+    return sortedLinks.filter((l) => l.title.toLowerCase().includes(q) || l.url.toLowerCase().includes(q))
+  }, [sortedLinks, searchQuery])
 
   const canSubmit = guildUser ? canContribute(guildUser.repPoints) : false
 
@@ -272,6 +305,23 @@ export function NewsroomPage() {
             )}
           </div>
 
+          <div className="mb-4">
+            <div className="relative max-w-xs">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search links..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search news links"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-white/10 bg-void-900 text-white/70 placeholder-white/20 focus:outline-none focus:border-white/20 transition-colors"
+              />
+            </div>
+          </div>
+
           {showSubmitForm && (
             <div className="mb-6">
               <SubmitLinkForm
@@ -286,9 +336,12 @@ export function NewsroomPage() {
           )}
 
           {loading ? (
-            <div className="py-12 text-center">
-              <p className="text-sm text-white/30 font-mono">Loading links...</p>
-            </div>
+            <SkeletonList count={6} />
+          ) : filteredLinks.length === 0 && searchQuery ? (
+            <EmptyState
+              icon="search"
+              title={`No links match \u201c${searchQuery}\u201d`}
+            />
           ) : links.length === 0 ? (
             <EmptyState
               icon="newspaper"
@@ -300,9 +353,21 @@ export function NewsroomPage() {
             />
           ) : (
             <div className="space-y-3">
-              {sortedLinks.map((link) => (
+              {filteredLinks.map((link) => (
                 <NewsItem key={link.id} link={link} onVoted={loadLinks} />
               ))}
+
+              {hasMore && !searchQuery && (
+                <div className="text-center pt-4">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-5 py-2 text-xs font-medium rounded-lg bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

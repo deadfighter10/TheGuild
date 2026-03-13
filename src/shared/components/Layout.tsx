@@ -106,23 +106,23 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search advancements, pages..."
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/25 focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none"
             />
-            <kbd className="hidden sm:inline px-2 py-0.5 rounded text-[10px] font-mono text-white/20 border border-white/[0.08] bg-white/[0.03]">
+            <kbd className="hidden sm:inline px-2 py-0.5 rounded text-[10px] font-mono text-white/30 border border-white/[0.08] bg-white/[0.03]">
               ESC
             </kbd>
           </div>
 
           <div className="max-h-72 overflow-y-auto">
             {query.length === 0 && (
-              <div className="px-5 py-6 text-center text-xs text-white/20">
+              <div className="px-5 py-6 text-center text-xs text-white/30">
                 Type to search advancements or navigate
               </div>
             )}
 
             {advancementResults.length > 0 && (
               <div className="px-3 py-2">
-                <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/20">Advancements</p>
+                <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/30">Advancements</p>
                 {advancementResults.map((adv) => {
                   const t = ADVANCEMENT_THEMES[adv.id]
                   if (!t) return null
@@ -145,7 +145,7 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
 
             {navResults.length > 0 && (
               <div className="px-3 py-2 border-t border-white/[0.04]">
-                <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/20">Pages</p>
+                <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/30">Pages</p>
                 {navResults.map((nav) => (
                   <button
                     key={nav.path}
@@ -159,7 +159,7 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
             )}
 
             {query.length > 0 && advancementResults.length === 0 && navResults.length === 0 && (
-              <div className="px-5 py-6 text-center text-xs text-white/20">
+              <div className="px-5 py-6 text-center text-xs text-white/30">
                 No results for &ldquo;{query}&rdquo;
               </div>
             )}
@@ -368,7 +368,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
 
               {ADVANCEMENTS.length > 0 && (
                 <div className="border-t border-white/5 mt-4 pt-4">
-                  <p className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-white/20 mb-1">
+                  <p className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-white/30 mb-1">
                     Advancements
                   </p>
                   {ADVANCEMENTS.map((adv) => {
@@ -481,7 +481,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
                 <Link to="/auth" className="text-sm text-white/50 hover:text-white/80 transition-colors">
                   Join
                 </Link>
-                <span className="text-sm text-white/25 cursor-default">
+                <span className="text-sm text-white/30 cursor-default">
                   Discord (100+ Rep)
                 </span>
                 <Link to="/pool" className="text-sm text-white/50 hover:text-white/80 transition-colors">
@@ -492,10 +492,10 @@ export function Layout({ children }: { readonly children: ReactNode }) {
           </div>
 
           <div className="mt-12 pt-6 border-t border-white/5 flex items-center justify-between">
-            <p className="text-xs text-white/20 font-mono">
+            <p className="text-xs text-white/30 font-mono">
               open source / open science / open future
             </p>
-            <p className="text-xs text-white/20 font-mono">
+            <p className="text-xs text-white/30 font-mono">
               v0.1.0
             </p>
           </div>

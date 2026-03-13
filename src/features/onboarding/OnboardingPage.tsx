@@ -117,7 +117,7 @@ export function OnboardingPage() {
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full px-4 py-3.5 bg-void-900 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors appearance-none cursor-pointer"
+                className="w-full px-4 py-3.5 bg-void-900 border border-white/15 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors appearance-none cursor-pointer"
               >
                 <option value="" disabled>
                   Select your country
@@ -166,7 +166,7 @@ export function OnboardingPage() {
                     <p className={`text-sm font-medium ${background === bg.value ? "text-white" : "text-white/60"}`}>
                       {bg.label}
                     </p>
-                    <p className="text-xs text-white/25 mt-0.5">{bg.description}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{bg.description}</p>
                   </div>
                 </button>
               ))}
@@ -208,7 +208,7 @@ export function OnboardingPage() {
                       <p className={`text-sm font-medium truncate ${selected ? "text-white" : "text-white/50"}`}>
                         {theme.shortName}
                       </p>
-                      <p className="text-[10px] text-white/20 truncate">{theme.tagline}</p>
+                      <p className="text-[10px] text-white/30 truncate">{theme.tagline}</p>
                     </div>
                   </button>
                 )
@@ -237,9 +237,9 @@ export function OnboardingPage() {
               onChange={(e) => setBio(e.target.value)}
               rows={4}
               placeholder="What drives you? What are you working on? What do you hope to contribute?"
-              className="w-full px-4 py-3.5 bg-void-900 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-none placeholder:text-white/15 leading-relaxed"
+              className="w-full px-4 py-3.5 bg-void-900 border border-white/15 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors resize-none placeholder:text-white/15 leading-relaxed"
             />
-            <p className="text-[10px] text-white/15 mt-2 text-right font-mono">
+            <p className="text-[10px] text-white/25 mt-2 text-right font-mono">
               Optional
             </p>
           </div>
@@ -276,7 +276,7 @@ export function OnboardingPage() {
             <button
               onClick={handleFinish}
               disabled={saving}
-              className="px-8 py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-white hover:opacity-90 disabled:opacity-50 rounded-xl text-sm font-bold transition-opacity shadow-lg shadow-cyan-400/20"
+              className="px-8 py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-bold transition-opacity shadow-lg shadow-cyan-400/20"
             >
               {saving ? "Saving..." : "Complete & Enter The Guild"}
             </button>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { canContribute } from "@/domain/reputation"
 import { createNode } from "./node-service"
+import { useToast } from "@/shared/components/Toast"
 
 type CreateNodeFormProps = {
   readonly advancementId: string
@@ -19,6 +20,7 @@ export function CreateNodeForm({
   onCancel,
 }: CreateNodeFormProps) {
   const { guildUser } = useAuth()
+  const { toast } = useToast()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [error, setError] = useState("")
@@ -54,19 +56,20 @@ export function CreateNodeForm({
       if (result.success) {
         setTitle("")
         setDescription("")
+        toast("Idea created!", "success")
         onCreated()
       } else {
         setError(result.reason)
       }
     } catch {
-      setError("Failed to create idea. Please try again.")
+      toast("Failed to create idea", "error")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 rounded-xl border border-white/10 bg-void-900 space-y-4">
+    <form onSubmit={handleSubmit} className="p-5 rounded-xl border border-white/15 bg-void-900 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-white mb-1">
           {parentNodeId ? "Build on this idea" : "New root idea"}
@@ -89,7 +92,7 @@ export function CreateNodeForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           placeholder="A concise name for your idea"
-          className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors placeholder:text-white/15"
+          className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors placeholder:text-white/15"
         />
       </div>
 
@@ -104,7 +107,7 @@ export function CreateNodeForm({
           required
           rows={3}
           placeholder="Describe the idea, hypothesis, or approach..."
-          className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-none placeholder:text-white/15"
+          className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors resize-none placeholder:text-white/15"
         />
       </div>
 
@@ -118,7 +121,7 @@ export function CreateNodeForm({
         <button
           type="submit"
           disabled={loading}
-          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
         >
           {loading ? "Creating..." : "Create Idea"}
         </button>

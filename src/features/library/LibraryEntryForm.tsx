@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from "react"
+import { useState, useRef, type FormEvent } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { createLibraryEntry, editLibraryEntry } from "./library-service"
 import type { LibraryEntry, Difficulty, ContentType } from "@/domain/library-entry"
+import { useToast } from "@/shared/components/Toast"
+import { MarkdownToolbar } from "@/shared/components/MarkdownToolbar"
 
 type LibraryEntryFormProps = {
   readonly existingEntry?: LibraryEntry
@@ -31,6 +33,8 @@ export function LibraryEntryForm({
   onCancel,
 }: LibraryEntryFormProps) {
   const { guildUser } = useAuth()
+  const { toast } = useToast()
+  const contentRef = useRef<HTMLTextAreaElement>(null)
   const [title, setTitle] = useState(existingEntry?.title ?? "")
   const [content, setContent] = useState(existingEntry?.content ?? "")
   const [contentType, setContentType] = useState<ContentType>(existingEntry?.contentType ?? "article")
@@ -83,16 +87,17 @@ export function LibraryEntryForm({
           return
         }
       }
+      toast(isEditing ? "Entry updated" : "Entry published!", "success")
       onSaved()
     } catch {
-      setError("Something went wrong. Please try again.")
+      toast("Something went wrong", "error")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 p-6 rounded-xl border border-white/10 bg-void-900">
+    <form onSubmit={handleSubmit} className="space-y-5 p-6 rounded-xl border border-white/15 bg-void-900">
       <h3 className="text-sm font-semibold text-white">
         {isEditing ? "Edit Library Entry" : "New Library Entry"}
       </h3>
@@ -138,7 +143,7 @@ export function LibraryEntryForm({
             : contentType === "document" ? "e.g. Fusion Reactor Design Principles (PDF)"
             : "A clear, descriptive title"
           }
-          className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors placeholder:text-white/15"
+          className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors placeholder:text-white/15"
         />
       </div>
 
@@ -158,10 +163,10 @@ export function LibraryEntryForm({
               : contentType === "document" ? "https://example.com/paper.pdf"
               : "https://..."
             }
-            className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors placeholder:text-white/15"
+            className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors placeholder:text-white/15"
           />
           {contentType === "youtube" && url && (
-            <p className="text-[10px] text-white/20 mt-1.5 font-mono">
+            <p className="text-[10px] text-white/30 mt-1.5 font-mono">
               Supported: youtube.com/watch?v=... or youtu.be/...
             </p>
           )}
@@ -178,7 +183,7 @@ export function LibraryEntryForm({
               id="entry-advancement"
               value={advancementId}
               onChange={(e) => setAdvancementId(e.target.value)}
-              className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.4)%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat"
+              className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.4)%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat"
             >
               {ADVANCEMENTS.map((adv) => (
                 <option key={adv.id} value={adv.id} className="bg-void-800 text-white">
@@ -197,7 +202,7 @@ export function LibraryEntryForm({
             id="entry-difficulty"
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-            className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.4)%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat"
+            className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.4)%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat"
           >
             {DIFFICULTIES.map((d) => (
               <option key={d.value} value={d.value} className="bg-void-800 text-white">
@@ -212,12 +217,14 @@ export function LibraryEntryForm({
         <label htmlFor="entry-content" className="block text-xs font-mono uppercase tracking-widest text-white/40 mb-2">
           {contentType === "article" ? "Content" : "Description / Notes"}
           {contentType !== "article" && (
-            <span className="normal-case tracking-normal text-white/20 ml-2">
+            <span className="normal-case tracking-normal text-white/30 ml-2">
               {contentType === "document" ? "(summary or key takeaways)" : "(optional context for the community)"}
             </span>
           )}
         </label>
+        <MarkdownToolbar textareaRef={contentRef} onUpdate={setContent} />
         <textarea
+          ref={contentRef}
           id="entry-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -229,7 +236,7 @@ export function LibraryEntryForm({
             : contentType === "link" ? "Brief summary of the source and why it matters..."
             : "Key takeaways, chapter summaries, or notes..."
           }
-          className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-y placeholder:text-white/15 font-mono text-xs leading-relaxed"
+          className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors resize-y placeholder:text-white/15 font-mono text-xs leading-relaxed"
         />
       </div>
 
@@ -243,7 +250,7 @@ export function LibraryEntryForm({
         <button
           type="submit"
           disabled={loading}
-          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
         >
           {loading ? "Saving..." : isEditing ? "Save Changes" : "Publish Entry"}
         </button>

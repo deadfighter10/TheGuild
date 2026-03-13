@@ -4,11 +4,13 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { getLibraryEntries } from "./library-service"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { LibraryEntryForm } from "./LibraryEntryForm"
 import type { LibraryEntry, Difficulty, ContentType } from "@/domain/library-entry"
 import { BookIcon, AdvancementIcon } from "@/shared/components/Icons"
 import { EmptyState } from "@/shared/components/EmptyState"
 import { isAdmin } from "@/domain/user"
+import { SkeletonList } from "@/shared/components/Skeleton"
 
 const DIFFICULTY_STYLES: Record<Difficulty, string> = {
   introductory: "text-green-400/60 bg-green-400/5 border-green-400/10",
@@ -43,6 +45,9 @@ export function LibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [entries, setEntries] = useState<readonly LibraryEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -50,15 +55,33 @@ export function LibraryPage() {
 
   const loadEntries = useCallback(async () => {
     setLoading(true)
+    setCursor(null)
     try {
-      const fetched = await getLibraryEntries(activeAdvancement)
-      setEntries(fetched)
+      const page = await getLibraryEntries(activeAdvancement)
+      setEntries(page.items)
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
     } catch {
       // UI shows stale state as fallback
     } finally {
       setLoading(false)
     }
   }, [activeAdvancement])
+
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const page = await getLibraryEntries(activeAdvancement, cursor)
+      setEntries((prev) => [...prev, ...page.items])
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
+    } catch {
+      // UI shows stale state as fallback
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     loadEntries()
@@ -114,7 +137,7 @@ export function LibraryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search library entries"
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-white/10 bg-void-900 text-white/70 placeholder-white/20 focus:outline-none focus:border-white/20 transition-colors"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-white/15 bg-void-900 text-white/70 placeholder-white/25 focus:outline-none focus:border-white/30 transition-colors"
               />
             </div>
             {canContribute && !showCreateForm && (
@@ -141,9 +164,7 @@ export function LibraryPage() {
           )}
 
           {loading ? (
-            <div className="py-12 text-center">
-              <p className="text-sm text-white/30 font-mono">Loading entries...</p>
-            </div>
+            <SkeletonList count={6} />
           ) : filteredEntries.length === 0 && searchQuery ? (
             <EmptyState
               icon="search"
@@ -194,6 +215,18 @@ export function LibraryPage() {
                   </Link>
                 )
               })}
+
+              {hasMore && !searchQuery && (
+                <div className="text-center pt-4">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-5 py-2 text-xs font-medium rounded-lg bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

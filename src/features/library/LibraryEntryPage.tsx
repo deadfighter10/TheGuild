@@ -10,6 +10,27 @@ import { extractYouTubeId, CONTENT_TYPE_LABELS } from "@/domain/library-entry"
 import type { LibraryEntry, Difficulty } from "@/domain/library-entry"
 import { AdvancementIcon } from "@/shared/components/Icons"
 import { Markdown } from "@/shared/components/Markdown"
+import { SkeletonText } from "@/shared/components/Skeleton"
+import { sanitizeUrl } from "@/shared/components/markdown-renderer"
+
+const IFRAME_ALLOWED_DOMAINS = [
+  "www.youtube-nocookie.com",
+  "youtube-nocookie.com",
+  "www.youtube.com",
+  "youtube.com",
+  "drive.google.com",
+  "docs.google.com",
+  "arxiv.org",
+] as const
+
+function isAllowedIframeDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname
+    return IFRAME_ALLOWED_DOMAINS.some((d) => hostname === d || hostname.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
 
 const DIFFICULTY_STYLES: Record<Difficulty, string> = {
   introductory: "text-green-400/60 bg-green-400/5 border-green-400/10",
@@ -25,7 +46,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
 
 function YouTubeEmbed({ url }: { readonly url: string }) {
   const videoId = extractYouTubeId(url)
-  if (!videoId) return null
+  if (!videoId || !/^[\w-]+$/.test(videoId)) return null
 
   return (
     <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10 bg-void-800">
@@ -34,6 +55,7 @@ function YouTubeEmbed({ url }: { readonly url: string }) {
         title="YouTube video"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
+        sandbox="allow-scripts allow-same-origin allow-presentation"
         className="absolute inset-0 w-full h-full"
       />
     </div>
@@ -41,17 +63,18 @@ function YouTubeEmbed({ url }: { readonly url: string }) {
 }
 
 function ExternalLinkCard({ url, title }: { readonly url: string; readonly title: string }) {
+  const safeUrl = sanitizeUrl(url)
   const hostname = (() => {
     try {
-      return new URL(url).hostname.replace("www.", "")
+      return new URL(safeUrl).hostname.replace("www.", "")
     } catch {
-      return url
+      return safeUrl
     }
   })()
 
   return (
     <a
-      href={url}
+      href={safeUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="group flex items-center gap-5 p-6 rounded-xl border border-white/10 bg-void-800 hover:border-cyan-400/20 transition-all"
@@ -79,18 +102,20 @@ function ExternalLinkCard({ url, title }: { readonly url: string; readonly title
 function DocumentViewer({ url, title }: { readonly url: string; readonly title: string }) {
   const isPdf = url.toLowerCase().endsWith(".pdf")
 
-  if (isPdf) {
+  if (isPdf && isAllowedIframeDomain(url)) {
+    const safeUrl = sanitizeUrl(url)
     return (
       <div className="space-y-3">
         <div className="relative w-full aspect-[8.5/11] max-h-[80vh] rounded-xl overflow-hidden border border-white/10 bg-void-800">
           <iframe
-            src={url}
+            src={safeUrl}
             title={title}
+            sandbox="allow-scripts allow-same-origin"
             className="absolute inset-0 w-full h-full"
           />
         </div>
         <a
-          href={url}
+          href={safeUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-xs text-cyan-400/60 hover:text-cyan-400 transition-colors font-mono"
@@ -142,8 +167,10 @@ export function LibraryEntryPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-6 py-16 text-center">
-        <p className="text-sm text-white/30 font-mono">Loading...</p>
+      <div className="max-w-4xl mx-auto px-6 py-16 space-y-6">
+        <div className="animate-pulse h-3 w-40 rounded bg-white/5" />
+        <div className="animate-pulse h-8 w-2/3 rounded bg-white/5" />
+        <SkeletonText lines={8} />
       </div>
     )
   }

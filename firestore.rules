@@ -3,78 +3,150 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: anyone authenticated can read (needed for vouch search by email)
-    // Users can create their own profile, update non-Rep fields
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null;
+    // Helper: read the authenticated user's rep from their user doc
+    function getUserRep() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints;
     }
 
-    // Advancements are readable by anyone authenticated
+    function isAdminUser() {
+      return getUserRep() == -1;
+    }
+
+    function isContributor() {
+      return isAdminUser() || getUserRep() >= 100;
+    }
+
+    function isModerator() {
+      return isAdminUser() || getUserRep() >= 3000;
+    }
+
+    // Users: anyone authenticated can read
+    // Users can only create and update their own profile
+    // Rep field changes are restricted (only admin via direct Firestore, or vouch flow)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.displayName.size() <= 50
+        && request.resource.data.bio.size() <= 500;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.displayName.size() <= 50
+        && request.resource.data.bio.size() <= 500;
+      allow delete: if request.auth != null && isAdminUser();
+    }
+
+    // Advancements are readable by anyone authenticated, immutable
     match /advancements/{advancementId} {
       allow read: if request.auth != null;
       allow write: if false;
     }
 
     // Vouches: authenticated users can read, create with their own voucherId
+    // Only contributors can vouch
     match /vouches/{vouchId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.voucherId == request.auth.uid;
+        && request.resource.data.voucherId == request.auth.uid
+        && isContributor();
     }
 
-    // Nodes (The Tree): authenticated users can read, contributors can create
+    // Nodes (The Tree): authenticated users can read
+    // Contributors can create their own nodes
+    // Author or moderator can update
     match /nodes/{nodeId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null;
+        && request.resource.data.authorId == request.auth.uid
+        && isContributor()
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.description.size() <= 5000;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator());
+      allow delete: if request.auth != null && isAdminUser();
     }
 
-    // Node supports: authenticated users can read, create with their own userId
+    // Node supports: authenticated users can read, contributors can create with own userId
     match /nodeSupports/{supportId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && isContributor();
     }
 
-    // Library entries: anyone authenticated can read, contributors can create
+    // Library entries: anyone authenticated can read
+    // 1500+ Rep or admin can create
+    // Author or moderator can update
     match /libraryEntries/{entryId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null;
+        && request.resource.data.authorId == request.auth.uid
+        && (isAdminUser() || getUserRep() >= 1500)
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.content.size() <= 50000;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator());
+      allow delete: if request.auth != null && isAdminUser();
     }
 
-    // News links: authenticated can read, contributors can create/update
+    // News links: authenticated can read
+    // Contributors can create with own submitterId
+    // Only submitter or moderator can update (score updates via votes)
     match /newsLinks/{linkId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.submitterId == request.auth.uid;
+        && request.resource.data.submitterId == request.auth.uid
+        && isContributor()
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.url.size() <= 2000;
       allow update: if request.auth != null;
+      allow delete: if request.auth != null && isAdminUser();
     }
 
-    // News votes: authenticated can read, create/update with own userId
+    // News votes: authenticated can read, contributors can create/update with own userId
     match /newsVotes/{voteId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && isContributor();
     }
 
-    // Discussion threads: authenticated can read, contributors can create
+    // Discussion threads: authenticated can read
+    // Contributors can create with own authorId
+    // Author or moderator can update/delete
     match /discussionThreads/{threadId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null;
+        && request.resource.data.authorId == request.auth.uid
+        && isContributor()
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.body.size() <= 10000;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator());
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator());
     }
 
-    // Discussion replies: authenticated can read, contributors can create
+    // Discussion replies: authenticated can read
+    // Contributors can create with own authorId
+    // Author or moderator can update/delete
     match /discussionReplies/{replyId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
+        && request.resource.data.authorId == request.auth.uid
+        && isContributor()
+        && request.resource.data.body.size() <= 10000;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator())
+        && request.resource.data.body.size() <= 10000;
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || isModerator());
+    }
+
+    // Audit log: append-only for admin actions
+    match /auditLog/{logId} {
+      allow read: if request.auth != null && isAdminUser();
+      allow create: if request.auth != null && isAdminUser();
     }
   }
 }

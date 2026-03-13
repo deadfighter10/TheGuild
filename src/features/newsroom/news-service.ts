@@ -9,9 +9,12 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
   increment,
   serverTimestamp,
 } from "firebase/firestore"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { validateSubmitNewsLink, validateVoteNewsLink } from "@/domain/news-link"
 import type { NewsLink, VoteValue } from "@/domain/news-link"
@@ -52,14 +55,32 @@ export async function submitNewsLink(params: SubmitLinkParams): Promise<SubmitLi
   return { success: true, linkId: docRef.id }
 }
 
-export async function getNewsLinks(advancementId?: string): Promise<readonly NewsLink[]> {
+const PAGE_SIZE = 20
+
+export type PageResult<T> = {
+  readonly items: readonly T[]
+  readonly lastDoc: QueryDocumentSnapshot<DocumentData> | null
+  readonly hasMore: boolean
+}
+
+export async function getNewsLinks(
+  advancementId?: string,
+  cursor?: QueryDocumentSnapshot<DocumentData>,
+): Promise<PageResult<NewsLink>> {
   const ref = collection(db, "newsLinks")
-  const q = advancementId
-    ? query(ref, where("advancementId", "==", advancementId), orderBy("createdAt", "desc"))
-    : query(ref, orderBy("createdAt", "desc"))
+  const constraints = [
+    ...(advancementId ? [where("advancementId", "==", advancementId)] : []),
+    orderBy("createdAt", "desc"),
+    ...(cursor ? [startAfter(cursor)] : []),
+    limit(PAGE_SIZE),
+  ]
+  const q = query(ref, ...constraints)
 
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((docSnap) => docToLink(docSnap.id, docSnap.data()))
+  const items = snapshot.docs.map((docSnap) => docToLink(docSnap.id, docSnap.data()))
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null
+
+  return { items, lastDoc, hasMore: snapshot.docs.length === PAGE_SIZE }
 }
 
 type VoteResult =

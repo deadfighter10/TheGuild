@@ -58,7 +58,7 @@ export function AuthForm() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
-              className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors"
+              className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors"
             />
           </div>
         )}
@@ -73,11 +73,11 @@ export function AuthForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors"
+            className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors"
             placeholder="you@university.edu"
           />
           {mode === "register" && (
-            <p className="text-[10px] text-white/20 mt-1.5 font-mono">
+            <p className="text-[10px] text-white/30 mt-1.5 font-mono">
               .edu / .ac email = instant 100 Rep bonus
             </p>
           )}
@@ -94,7 +94,7 @@ export function AuthForm() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors"
+            className="w-full px-4 py-2.5 bg-void-800 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/50 transition-colors"
           />
         </div>
 
@@ -107,7 +107,7 @@ export function AuthForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+          className="w-full py-2.5 bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
         >
           {loading ? "Loading..." : mode === "login" ? "Sign In" : "Create Account"}
         </button>

@@ -59,9 +59,9 @@ function useSubHubStats(advancementId: string) {
     ]).then(([nodes, threads, entries, links]) => {
       setStats({
         ideas: nodes.length,
-        threads: threads.length,
-        libraryEntries: entries.length,
-        newsLinks: links.length,
+        threads: threads.items.length,
+        libraryEntries: entries.items.length,
+        newsLinks: links.items.length,
       })
     }).catch(() => {})
   }, [advancementId])
@@ -325,6 +325,101 @@ export function AdvancementDetailPage() {
   )
 }
 
+type ActivityItem = {
+  readonly id: string
+  readonly type: "idea" | "thread" | "entry" | "link"
+  readonly title: string
+  readonly createdAt: Date
+  readonly tab?: Tab
+}
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60) return "just now"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return date.toLocaleDateString()
+}
+
+const ACTIVITY_ICONS: Record<ActivityItem["type"], { label: string; color: string }> = {
+  idea: { label: "Idea", color: "text-emerald-400/50" },
+  thread: { label: "Thread", color: "text-blue-400/50" },
+  entry: { label: "Library", color: "text-cyan-400/50" },
+  link: { label: "News", color: "text-violet-400/50" },
+}
+
+function RecentActivity({ advancementId, onNavigate }: {
+  readonly advancementId: string
+  readonly onNavigate: (tab: Tab) => void
+}) {
+  const [items, setItems] = useState<readonly ActivityItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      getNodesByAdvancement(advancementId),
+      getThreadsByAdvancement(advancementId),
+      getLibraryEntries(advancementId),
+      getNewsLinks(advancementId),
+    ]).then(([nodes, threads, entries, links]) => {
+      const all: ActivityItem[] = [
+        ...nodes.map((n) => ({ id: n.id, type: "idea" as const, title: n.title, createdAt: n.createdAt, tab: "tree" as Tab })),
+        ...threads.items.map((t) => ({ id: t.id, type: "thread" as const, title: t.title, createdAt: t.createdAt, tab: "discussions" as Tab })),
+        ...entries.items.map((e) => ({ id: e.id, type: "entry" as const, title: e.title, createdAt: e.createdAt, tab: "library" as Tab })),
+        ...links.items.map((l) => ({ id: l.id, type: "link" as const, title: l.title, createdAt: l.createdAt })),
+      ]
+      all.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      setItems(all.slice(0, 10))
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [advancementId])
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-5">
+        <div className="animate-pulse h-3 w-32 rounded bg-white/5 mb-4" />
+        <div className="space-y-3">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="animate-pulse h-3 w-full rounded bg-white/5" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (items.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-5">
+      <h3 className="font-mono text-xs uppercase tracking-widest text-white/30 mb-4">
+        Recent Activity
+      </h3>
+      <div className="space-y-2">
+        {items.map((item) => {
+          const icon = ACTIVITY_ICONS[item.type]
+          return (
+            <button
+              key={`${item.type}-${item.id}`}
+              onClick={item.tab ? () => onNavigate(item.tab!) : undefined}
+              disabled={!item.tab}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.03] transition-colors text-left disabled:cursor-default"
+            >
+              <span className={`text-[9px] font-mono uppercase w-12 shrink-0 ${icon.color}`}>
+                {icon.label}
+              </span>
+              <span className="text-xs text-white/50 truncate flex-1">{item.title}</span>
+              <span className="text-[10px] text-white/20 shrink-0 font-mono">{timeAgo(item.createdAt)}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function OverviewTab({ advancement, stats, platforms, onNavigate }: {
   readonly advancement: { readonly id: string; readonly name: string; readonly description: string }
   readonly stats: SubHubStats
@@ -411,6 +506,8 @@ function OverviewTab({ advancement, stats, platforms, onNavigate }: {
           </Link>
         </div>
       </div>
+
+      <RecentActivity advancementId={advancement.id} onNavigate={onNavigate} />
     </div>
   )
 }
@@ -423,7 +520,7 @@ function LibraryTab({ advancementId }: {
 
   useEffect(() => {
     getLibraryEntries(advancementId)
-      .then(setEntries)
+      .then((page) => setEntries(page.items))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [advancementId])

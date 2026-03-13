@@ -23,8 +23,10 @@ import {
   getAdminStats,
   type AdminStats,
 } from "./admin-service"
+import { logAuditEvent, getAuditLog } from "./audit-service"
+import type { AuditLogEntry } from "@/domain/audit-log"
 
-type AdminTab = "overview" | "users" | "nodes" | "library" | "newsroom" | "discussions"
+type AdminTab = "overview" | "users" | "nodes" | "library" | "newsroom" | "discussions" | "audit"
 
 function timeAgo(date: Date): string {
   const s = Math.floor((Date.now() - date.getTime()) / 1000)
@@ -113,7 +115,9 @@ function OverviewPanel({ stats }: { readonly stats: AdminStats | null }) {
   )
 }
 
-function UsersPanel() {
+type ActorInfo = { readonly actorId: string; readonly actorName: string }
+
+function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
   const [users, setUsers] = useState<readonly GuildUser[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -130,13 +134,17 @@ function UsersPanel() {
   const handleRepSave = async (uid: string) => {
     const val = parseInt(repValue, 10)
     if (isNaN(val)) return
+    const oldUser = users.find((u) => u.uid === uid)
     await updateUserRep(uid, val)
+    await logAuditEvent({ ...actor, action: "update_rep", targetCollection: "users", targetId: uid, details: `Rep changed from ${oldUser?.repPoints ?? "?"} to ${val}` })
     setEditingRep(null)
     load()
   }
 
   const handleDelete = async (uid: string) => {
+    const user = users.find((u) => u.uid === uid)
     await deleteUser(uid)
+    await logAuditEvent({ ...actor, action: "delete_user", targetCollection: "users", targetId: uid, details: `Deleted user "${user?.displayName ?? uid}"` })
     load()
   }
 
@@ -247,7 +255,7 @@ function UsersPanel() {
   )
 }
 
-function NodesPanel() {
+function NodesPanel({ actor }: { readonly actor: ActorInfo }) {
   const [nodes, setNodes] = useState<readonly TreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -260,12 +268,16 @@ function NodesPanel() {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
+    const node = nodes.find((n) => n.id === id)
     await deleteNode(id)
+    await logAuditEvent({ ...actor, action: "delete_node", targetCollection: "nodes", targetId: id, details: `Deleted idea "${node?.title ?? id}"` })
     load()
   }
 
   const handleStatusChange = async (id: string, status: string) => {
+    const node = nodes.find((n) => n.id === id)
     await updateNodeField(id, "status", status)
+    await logAuditEvent({ ...actor, action: "update_node_status", targetCollection: "nodes", targetId: id, details: `Changed status of "${node?.title ?? id}" from ${node?.status ?? "?"} to ${status}` })
     load()
   }
 
@@ -338,7 +350,7 @@ function NodesPanel() {
   )
 }
 
-function LibraryPanel() {
+function LibraryPanel({ actor }: { readonly actor: ActorInfo }) {
   const [entries, setEntries] = useState<readonly LibraryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -351,7 +363,9 @@ function LibraryPanel() {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
+    const entry = entries.find((e) => e.id === id)
     await deleteLibraryEntry(id)
+    await logAuditEvent({ ...actor, action: "delete_library_entry", targetCollection: "libraryEntries", targetId: id, details: `Deleted entry "${entry?.title ?? id}"` })
     load()
   }
 
@@ -407,7 +421,7 @@ function LibraryPanel() {
   )
 }
 
-function NewsPanel() {
+function NewsPanel({ actor }: { readonly actor: ActorInfo }) {
   const [links, setLinks] = useState<readonly NewsLink[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -420,7 +434,9 @@ function NewsPanel() {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
+    const link = links.find((l) => l.id === id)
     await deleteNewsLink(id)
+    await logAuditEvent({ ...actor, action: "delete_news_link", targetCollection: "newsLinks", targetId: id, details: `Deleted link "${link?.title ?? id}"` })
     load()
   }
 
@@ -478,7 +494,7 @@ function NewsPanel() {
   )
 }
 
-function ThreadsPanel() {
+function ThreadsPanel({ actor }: { readonly actor: ActorInfo }) {
   const [threads, setThreads] = useState<readonly DiscussionThread[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -491,7 +507,9 @@ function ThreadsPanel() {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
+    const thread = threads.find((t) => t.id === id)
     await deleteThread(id)
+    await logAuditEvent({ ...actor, action: "delete_thread", targetCollection: "discussionThreads", targetId: id, details: `Deleted thread "${thread?.title ?? id}"` })
     load()
   }
 
@@ -547,6 +565,79 @@ function ThreadsPanel() {
   )
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  delete_user: "Delete User",
+  update_rep: "Update Rep",
+  delete_node: "Delete Idea",
+  update_node_status: "Change Status",
+  delete_library_entry: "Delete Entry",
+  delete_news_link: "Delete Link",
+  delete_thread: "Delete Thread",
+  delete_reply: "Delete Reply",
+}
+
+const ACTION_COLORS: Record<string, string> = {
+  delete_user: "text-red-400/70 bg-red-400/10",
+  update_rep: "text-amber-400/70 bg-amber-400/10",
+  delete_node: "text-red-400/70 bg-red-400/10",
+  update_node_status: "text-cyan-400/70 bg-cyan-400/10",
+  delete_library_entry: "text-red-400/70 bg-red-400/10",
+  delete_news_link: "text-red-400/70 bg-red-400/10",
+  delete_thread: "text-red-400/70 bg-red-400/10",
+  delete_reply: "text-red-400/70 bg-red-400/10",
+}
+
+function AuditPanel() {
+  const [entries, setEntries] = useState<readonly AuditLogEntry[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getAuditLog(100).then(setEntries).finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <p className="text-sm text-white/30 font-mono py-8 text-center">Loading audit log...</p>
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-sm text-white/30 mb-1">No audit events yet</p>
+        <p className="text-xs text-white/20">Admin actions will be logged here.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h2 className="font-mono text-xs uppercase tracking-widest text-white/30 mb-4">
+        Audit Log <span className="text-white/15">({entries.length} events)</span>
+      </h2>
+
+      <div className="space-y-1.5">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-start gap-4 px-4 py-3 rounded-xl border border-white/[0.04] bg-white/[0.02]"
+          >
+            <span className={`shrink-0 mt-0.5 text-[10px] font-mono px-2 py-0.5 rounded ${ACTION_COLORS[entry.action] ?? "text-white/50 bg-white/5"}`}>
+              {ACTION_LABELS[entry.action] ?? entry.action}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white/60">{entry.details}</p>
+              <div className="flex items-center gap-3 mt-1 text-[10px] text-white/25">
+                <span>by {entry.actorName}</span>
+                <span className="font-mono">{entry.targetCollection}/{entry.targetId.slice(0, 8)}...</span>
+                <span>{timeAgo(entry.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const ADMIN_TABS: readonly { readonly key: AdminTab; readonly label: string; readonly icon: string }[] = [
   { key: "overview", label: "Overview", icon: "◉" },
   { key: "users", label: "Users", icon: "◎" },
@@ -554,6 +645,7 @@ const ADMIN_TABS: readonly { readonly key: AdminTab; readonly label: string; rea
   { key: "library", label: "Library", icon: "▣" },
   { key: "newsroom", label: "News", icon: "▤" },
   { key: "discussions", label: "Threads", icon: "▧" },
+  { key: "audit", label: "Audit Log", icon: "◆" },
 ]
 
 export function AdminPage() {
@@ -608,11 +700,12 @@ export function AdminPage() {
 
       <div className="mt-8">
         {activeTab === "overview" && <OverviewPanel stats={stats} />}
-        {activeTab === "users" && <UsersPanel />}
-        {activeTab === "nodes" && <NodesPanel />}
-        {activeTab === "library" && <LibraryPanel />}
-        {activeTab === "newsroom" && <NewsPanel />}
-        {activeTab === "discussions" && <ThreadsPanel />}
+        {activeTab === "users" && <UsersPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "nodes" && <NodesPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "library" && <LibraryPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "newsroom" && <NewsPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "discussions" && <ThreadsPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "audit" && <AuditPanel />}
       </div>
     </div>
   )

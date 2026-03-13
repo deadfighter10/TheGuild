@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react"
+import { Link } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
-import { canContribute } from "@/domain/reputation"
-import { createThread, getThreadsByAdvancement, createReply, getRepliesByThread } from "./discussion-service"
+import { canContribute, canModerate } from "@/domain/reputation"
+import { createThread, getThreadsByAdvancement, createReply, getRepliesByThread, editThread, editReply, deleteThread, deleteReply } from "./discussion-service"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import type { DiscussionThread, DiscussionReply } from "@/domain/discussion"
 import { EmptyState } from "@/shared/components/EmptyState"
+import { useToast } from "@/shared/components/Toast"
+import { SkeletonList } from "@/shared/components/Skeleton"
 
 type DiscussionForumProps = {
   readonly advancementId: string
@@ -27,6 +31,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
   readonly onCancel: () => void
 }) {
   const { guildUser } = useAuth()
+  const { toast } = useToast()
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [error, setError] = useState("")
@@ -52,6 +57,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
       if (result.success) {
         setTitle("")
         setBody("")
+        toast("Thread created", "success")
         onCreated()
       } else {
         setError(result.reason)
@@ -99,7 +105,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
         <button
           type="submit"
           disabled={loading}
-          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+          className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
         >
           {loading ? "Posting..." : "Post"}
         </button>
@@ -139,9 +145,15 @@ function ThreadCard({ thread, onOpenThread }: {
         <div className="w-5 h-5 rounded-full bg-void-700 flex items-center justify-center text-[9px] font-mono text-white/50">
           {thread.authorName.charAt(0).toUpperCase()}
         </div>
-        <span className="text-[11px] text-white/30">{thread.authorName}</span>
+        <Link
+          to={`/users/${thread.authorId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-[11px] text-white/30 hover:text-cyan-400/70 transition-colors"
+        >
+          {thread.authorName}
+        </Link>
         <span className="text-white/10">·</span>
-        <span className="text-[11px] text-white/20">{timeAgo(thread.createdAt)}</span>
+        <span className="text-[11px] text-white/30">{timeAgo(thread.createdAt)}</span>
       </div>
     </button>
   )
@@ -152,11 +164,21 @@ function ThreadView({ thread, onBack }: {
   readonly onBack: () => void
 }) {
   const { guildUser } = useAuth()
+  const { toast } = useToast()
   const [replies, setReplies] = useState<readonly DiscussionReply[]>([])
   const [loading, setLoading] = useState(true)
   const [replyBody, setReplyBody] = useState("")
   const [replyError, setReplyError] = useState("")
   const [replying, setReplying] = useState(false)
+  const [editingThread, setEditingThread] = useState(false)
+  const [editTitle, setEditTitle] = useState(thread.title)
+  const [editBody, setEditBody] = useState(thread.body)
+  const [editingThreadSaving, setEditingThreadSaving] = useState(false)
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null)
+  const [editReplyBody, setEditReplyBody] = useState("")
+  const [editReplySaving, setEditReplySaving] = useState(false)
+  const [deletingThread, setDeletingThread] = useState(false)
+  const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null)
 
   const loadReplies = useCallback(async () => {
     setLoading(true)
@@ -191,18 +213,116 @@ function ThreadView({ thread, onBack }: {
 
       if (result.success) {
         setReplyBody("")
+        toast("Reply posted", "success")
         loadReplies()
       } else {
         setReplyError(result.reason)
       }
     } catch {
-      setReplyError("Failed to post reply.")
+      toast("Failed to post reply", "error")
     } finally {
       setReplying(false)
     }
   }
 
   const canReply = guildUser ? canContribute(guildUser.repPoints) : false
+  const isThreadOwner = guildUser?.uid === thread.authorId
+  const isMod = guildUser ? canModerate(guildUser.repPoints) : false
+  const canEditThread = isThreadOwner || isMod
+
+  const handleEditThread = async () => {
+    if (!guildUser) return
+    setEditingThreadSaving(true)
+    try {
+      const result = await editThread({
+        userId: guildUser.uid,
+        userRep: guildUser.repPoints,
+        threadId: thread.id,
+        title: editTitle,
+        body: editBody,
+      })
+      if (result.success) {
+        toast("Thread updated", "success")
+        setEditingThread(false)
+        onBack()
+      } else {
+        toast(result.reason, "error")
+      }
+    } catch {
+      toast("Failed to update thread", "error")
+    } finally {
+      setEditingThreadSaving(false)
+    }
+  }
+
+  const handleDeleteThread = async () => {
+    if (!guildUser) return
+    setDeletingThread(true)
+    try {
+      const result = await deleteThread({
+        userId: guildUser.uid,
+        userRep: guildUser.repPoints,
+        threadId: thread.id,
+      })
+      if (result.success) {
+        toast("Thread deleted", "success")
+        onBack()
+      } else {
+        toast(result.reason, "error")
+      }
+    } catch {
+      toast("Failed to delete thread", "error")
+    } finally {
+      setDeletingThread(false)
+    }
+  }
+
+  const handleEditReply = async (replyId: string) => {
+    if (!guildUser) return
+    setEditReplySaving(true)
+    try {
+      const result = await editReply({
+        userId: guildUser.uid,
+        userRep: guildUser.repPoints,
+        replyId,
+        body: editReplyBody,
+      })
+      if (result.success) {
+        toast("Reply updated", "success")
+        setEditingReplyId(null)
+        loadReplies()
+      } else {
+        toast(result.reason, "error")
+      }
+    } catch {
+      toast("Failed to update reply", "error")
+    } finally {
+      setEditReplySaving(false)
+    }
+  }
+
+  const handleDeleteReply = async (replyId: string) => {
+    if (!guildUser) return
+    setDeletingReplyId(replyId)
+    try {
+      const result = await deleteReply({
+        userId: guildUser.uid,
+        userRep: guildUser.repPoints,
+        replyId,
+        threadId: thread.id,
+      })
+      if (result.success) {
+        toast("Reply deleted", "success")
+        loadReplies()
+      } else {
+        toast(result.reason, "error")
+      }
+    } catch {
+      toast("Failed to delete reply", "error")
+    } finally {
+      setDeletingReplyId(null)
+    }
+  }
 
   return (
     <div>
@@ -215,15 +335,68 @@ function ThreadView({ thread, onBack }: {
       </button>
 
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 mb-6">
-        <h3 className="text-base font-semibold text-white/90 mb-3">{thread.title}</h3>
-        <p className="text-sm text-white/40 leading-relaxed whitespace-pre-wrap">{thread.body}</p>
+        {editingThread ? (
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors"
+            />
+            <textarea
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-y leading-relaxed"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleEditThread}
+                disabled={editingThreadSaving}
+                className="px-4 py-1.5 text-xs font-medium rounded-md bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {editingThreadSaving ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => { setEditingThread(false); setEditTitle(thread.title); setEditBody(thread.body) }}
+                className="px-4 py-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-base font-semibold text-white/90 mb-3">{thread.title}</h3>
+              {canEditThread && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setEditingThread(true)}
+                    className="px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleDeleteThread}
+                    disabled={deletingThread}
+                    className="px-2 py-1 text-[10px] text-red-400/40 hover:text-red-400/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {deletingThread ? "..." : "Delete"}
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-white/40 leading-relaxed whitespace-pre-wrap">{thread.body}</p>
+          </>
+        )}
         <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/[0.04]">
           <div className="w-6 h-6 rounded-full bg-void-700 flex items-center justify-center text-[10px] font-mono text-white/50">
             {thread.authorName.charAt(0).toUpperCase()}
           </div>
-          <span className="text-xs text-white/40">{thread.authorName}</span>
+          <Link to={`/users/${thread.authorId}`} className="text-xs text-white/40 hover:text-cyan-400/70 transition-colors">{thread.authorName}</Link>
           <span className="text-white/10">·</span>
-          <span className="text-xs text-white/20">{timeAgo(thread.createdAt)}</span>
+          <span className="text-xs text-white/30">{timeAgo(thread.createdAt)}</span>
         </div>
       </div>
 
@@ -233,22 +406,73 @@ function ThreadView({ thread, onBack }: {
         </h4>
 
         {loading ? (
-          <p className="text-sm text-white/20 py-4">Loading replies...</p>
+          <p className="text-sm text-white/30 py-4">Loading replies...</p>
         ) : (
           <div className="space-y-3">
-            {replies.map((reply) => (
-              <div key={reply.id} className="rounded-lg border border-white/[0.04] bg-white/[0.015] p-4">
-                <p className="text-sm text-white/50 leading-relaxed whitespace-pre-wrap">{reply.body}</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <div className="w-5 h-5 rounded-full bg-void-700 flex items-center justify-center text-[9px] font-mono text-white/50">
-                    {reply.authorName.charAt(0).toUpperCase()}
+            {replies.map((reply) => {
+              const isReplyOwner = guildUser?.uid === reply.authorId
+              const canEditReply = isReplyOwner || isMod
+              const isEditingThis = editingReplyId === reply.id
+
+              return (
+                <div key={reply.id} className="rounded-lg border border-white/[0.04] bg-white/[0.015] p-4">
+                  {isEditingThis ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editReplyBody}
+                        onChange={(e) => setEditReplyBody(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-y leading-relaxed"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditReply(reply.id)}
+                          disabled={editReplySaving}
+                          className="px-3 py-1 text-[10px] font-medium rounded-md bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {editReplySaving ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          onClick={() => setEditingReplyId(null)}
+                          className="px-3 py-1 text-[10px] text-white/40 hover:text-white/70 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-white/50 leading-relaxed whitespace-pre-wrap flex-1">{reply.body}</p>
+                      {canEditReply && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => { setEditingReplyId(reply.id); setEditReplyBody(reply.body) }}
+                            className="px-1.5 py-0.5 text-[10px] text-white/20 hover:text-white/50 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReply(reply.id)}
+                            disabled={deletingReplyId === reply.id}
+                            className="px-1.5 py-0.5 text-[10px] text-red-400/30 hover:text-red-400/70 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {deletingReplyId === reply.id ? "..." : "Del"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 mt-3">
+                    <div className="w-5 h-5 rounded-full bg-void-700 flex items-center justify-center text-[9px] font-mono text-white/50">
+                      {reply.authorName.charAt(0).toUpperCase()}
+                    </div>
+                    <Link to={`/users/${reply.authorId}`} className="text-[11px] text-white/30 hover:text-cyan-400/70 transition-colors">{reply.authorName}</Link>
+                    <span className="text-white/10">·</span>
+                    <span className="text-[11px] text-white/30">{timeAgo(reply.createdAt)}</span>
                   </div>
-                  <span className="text-[11px] text-white/30">{reply.authorName}</span>
-                  <span className="text-white/10">·</span>
-                  <span className="text-[11px] text-white/20">{timeAgo(reply.createdAt)}</span>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -269,7 +493,7 @@ function ThreadView({ thread, onBack }: {
           <button
             type="submit"
             disabled={replying}
-            className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+            className="px-5 py-2 bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
           >
             {replying ? "Posting..." : "Reply"}
           </button>
@@ -277,7 +501,7 @@ function ThreadView({ thread, onBack }: {
       )}
 
       {!canReply && guildUser && (
-        <p className="text-xs text-white/20 text-center py-4">
+        <p className="text-xs text-white/30 text-center py-4">
           You need 100+ Rep to reply to discussions.
         </p>
       )}
@@ -289,20 +513,41 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
   const { guildUser } = useAuth()
   const [threads, setThreads] = useState<readonly DiscussionThread[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [showNewThread, setShowNewThread] = useState(false)
   const [openThreadId, setOpenThreadId] = useState<string | null>(null)
 
   const loadThreads = useCallback(async () => {
     setLoading(true)
+    setCursor(null)
     try {
-      const fetched = await getThreadsByAdvancement(advancementId)
-      setThreads(fetched)
+      const page = await getThreadsByAdvancement(advancementId)
+      setThreads(page.items)
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
     } catch {
       // UI shows stale state as fallback
     } finally {
       setLoading(false)
     }
   }, [advancementId])
+
+  const loadMoreThreads = async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const page = await getThreadsByAdvancement(advancementId, cursor)
+      setThreads((prev) => [...prev, ...page.items])
+      setCursor(page.lastDoc)
+      setHasMore(page.hasMore)
+    } catch {
+      // UI shows stale state as fallback
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     loadThreads()
@@ -324,7 +569,7 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
   }
 
   if (loading) {
-    return <p className="text-sm text-white/30 font-mono py-8 text-center">Loading discussions...</p>
+    return <SkeletonList count={4} />
   }
 
   return (
@@ -334,7 +579,7 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
           <h3 className="font-mono text-xs uppercase tracking-widest text-white/40">
             Discussions
           </h3>
-          <span className="font-mono text-[10px] text-white/20">
+          <span className="font-mono text-[10px] text-white/30">
             {threads.length} thread{threads.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -380,6 +625,18 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
               onOpenThread={setOpenThreadId}
             />
           ))}
+
+          {hasMore && (
+            <div className="text-center pt-4">
+              <button
+                onClick={loadMoreThreads}
+                disabled={loadingMore}
+                className="px-5 py-2 text-xs font-medium rounded-lg bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

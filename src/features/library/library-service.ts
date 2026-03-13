@@ -8,8 +8,11 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
   serverTimestamp,
 } from "firebase/firestore"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { validateCreateLibraryEntry, validateEditLibraryEntry } from "@/domain/library-entry"
 import type { LibraryEntry, Difficulty, ContentType } from "@/domain/library-entry"
@@ -120,14 +123,32 @@ export async function editLibraryEntry(params: EditEntryParams): Promise<EditEnt
   return { success: true }
 }
 
-export async function getLibraryEntries(advancementId?: string): Promise<readonly LibraryEntry[]> {
+const PAGE_SIZE = 20
+
+export type PageResult<T> = {
+  readonly items: readonly T[]
+  readonly lastDoc: QueryDocumentSnapshot<DocumentData> | null
+  readonly hasMore: boolean
+}
+
+export async function getLibraryEntries(
+  advancementId?: string,
+  cursor?: QueryDocumentSnapshot<DocumentData>,
+): Promise<PageResult<LibraryEntry>> {
   const ref = collection(db, "libraryEntries")
-  const q = advancementId
-    ? query(ref, where("advancementId", "==", advancementId), orderBy("createdAt", "desc"))
-    : query(ref, orderBy("createdAt", "desc"))
+  const constraints = [
+    ...(advancementId ? [where("advancementId", "==", advancementId)] : []),
+    orderBy("createdAt", "desc"),
+    ...(cursor ? [startAfter(cursor)] : []),
+    limit(PAGE_SIZE),
+  ]
+  const q = query(ref, ...constraints)
 
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((docSnap) => docToEntry(docSnap.id, docSnap.data()))
+  const items = snapshot.docs.map((docSnap) => docToEntry(docSnap.id, docSnap.data()))
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null
+
+  return { items, lastDoc, hasMore: snapshot.docs.length === PAGE_SIZE }
 }
 
 export async function getLibraryEntry(entryId: string): Promise<LibraryEntry | null> {

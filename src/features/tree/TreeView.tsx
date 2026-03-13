@@ -7,6 +7,7 @@ import { getNodesByAdvancement, supportNode, setNodeStatus, hasUserSupported, ed
 import { CreateNodeForm } from "./CreateNodeForm"
 import { ChevronRightIcon } from "@/shared/components/Icons"
 import { EmptyState } from "@/shared/components/EmptyState"
+import { useToast } from "@/shared/components/Toast"
 
 type SortMode = "newest" | "most-supported" | "status"
 
@@ -80,6 +81,7 @@ type NodeCardProps = {
 
 function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
   const { guildUser, refreshUser } = useAuth()
+  const { toast } = useToast()
   const [expanded, setExpanded] = useState(depth < 2)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [supporting, setSupporting] = useState(false)
@@ -110,13 +112,14 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
       const result = await supportNode(guildUser.uid, guildUser.repPoints, node.id)
       if (result.success) {
         setSupported(true)
+        toast("Idea supported!", "success")
         await refreshUser()
         onRefresh()
       } else {
         setSupportError(result.reason)
       }
     } catch {
-      setSupportError("Failed to support")
+      toast("Failed to support idea", "error")
     } finally {
       setSupporting(false)
     }
@@ -128,9 +131,10 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
 
     try {
       await setNodeStatus(guildUser.repPoints, node.id, newStatus)
+      toast(`Status changed to ${newStatus}`, "success")
       onRefresh()
     } catch {
-      // UI shows stale state as fallback
+      toast("Failed to update status", "error")
     } finally {
       setStatusUpdating(false)
     }
@@ -157,12 +161,13 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
       })
       if (result.success) {
         setEditing(false)
+        toast("Idea updated", "success")
         onRefresh()
       } else {
         setEditError(result.reason)
       }
     } catch {
-      setEditError("Failed to save")
+      toast("Failed to save changes", "error")
     } finally {
       setEditSaving(false)
     }
@@ -213,7 +218,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
                   <button
                     onClick={handleSupport}
                     disabled={supporting}
-                    className="text-[10px] font-medium text-cyan-400/60 hover:text-cyan-400 disabled:opacity-50 transition-colors"
+                    className="text-[10px] font-medium text-cyan-400/60 hover:text-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {supporting ? "..." : "+ Support"}
                   </button>
@@ -302,7 +307,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
               <button
                 onClick={handleSaveEdit}
                 disabled={editSaving}
-                className="px-4 py-1.5 text-xs font-medium rounded-md bg-white text-void-950 hover:bg-white/90 disabled:opacity-50 transition-colors"
+                className="px-4 py-1.5 text-xs font-medium rounded-md bg-white text-void-950 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {editSaving ? "Saving..." : "Save"}
               </button>

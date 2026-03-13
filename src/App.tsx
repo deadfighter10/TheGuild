@@ -18,6 +18,7 @@ const OnboardingPage = lazy(() => import("@/features/onboarding/OnboardingPage")
 const ProfilePage = lazy(() => import("@/features/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })))
 const PoolPage = lazy(() => import("@/features/pool/PoolPage").then((m) => ({ default: m.PoolPage })))
 const AdminPage = lazy(() => import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })))
+const PublicProfilePage = lazy(() => import("@/features/profile/PublicProfilePage").then((m) => ({ default: m.PublicProfilePage })))
 
 function PageLoader() {
   return (
@@ -118,6 +119,14 @@ export function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/users/:uid"
+                element={
+                  <ProtectedRoute>
+                    <PublicProfilePage />
                   </ProtectedRoute>
                 }
               />

@@ -128,7 +128,7 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             maxLength={50}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-white/10 bg-void-950 text-white/70 placeholder-white/20 focus:outline-none focus:border-white/20"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-white/15 bg-void-950 text-white/70 placeholder-white/25 focus:outline-none focus:border-white/30"
           />
         </div>
 
@@ -197,9 +197,9 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
             rows={3}
             maxLength={300}
             placeholder="Tell us about yourself..."
-            className="w-full px-3 py-2 text-sm rounded-lg border border-white/10 bg-void-950 text-white/70 placeholder-white/20 focus:outline-none focus:border-white/20 resize-none"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-white/15 bg-void-950 text-white/70 placeholder-white/25 focus:outline-none focus:border-white/30 resize-none"
           />
-          <span className="text-[10px] text-white/20 font-mono">{bio.length}/300</span>
+          <span className="text-[10px] text-white/30 font-mono">{bio.length}/300</span>
         </div>
 
         {error && <p className="text-xs text-red-400/70">{error}</p>}
@@ -208,7 +208,7 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2.5 text-sm font-medium rounded-lg bg-white/10 text-white hover:bg-white/15 border border-white/10 transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 text-sm font-medium rounded-lg bg-white/10 text-white hover:bg-white/15 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -263,7 +263,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
     return (
       <div className="py-12 text-center border border-dashed border-white/10 rounded-xl">
         <p className="text-sm text-white/30 mb-1">No contributions yet</p>
-        <p className="text-xs text-white/15">Start contributing to see your work here</p>
+        <p className="text-xs text-white/25">Start contributing to see your work here</p>
       </div>
     )
   }
@@ -298,7 +298,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
       {activeTab === "nodes" && (
         <div className="space-y-2">
           {data.nodes.length === 0 ? (
-            <p className="text-xs text-white/20 py-4 text-center">No ideas submitted</p>
+            <p className="text-xs text-white/30 py-4 text-center">No ideas submitted</p>
           ) : (
             data.nodes.map((node) => {
               const theme = ADVANCEMENT_THEMES[node.advancementId]
@@ -315,7 +315,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white/70 truncate">{node.title}</p>
-                    <span className="text-[10px] text-white/20 font-mono">
+                    <span className="text-[10px] text-white/30 font-mono">
                       {node.supportCount} support{node.supportCount !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -330,7 +330,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
       {activeTab === "library" && (
         <div className="space-y-2">
           {data.entries.length === 0 ? (
-            <p className="text-xs text-white/20 py-4 text-center">No library entries</p>
+            <p className="text-xs text-white/30 py-4 text-center">No library entries</p>
           ) : (
             data.entries.map((entry) => {
               const theme = ADVANCEMENT_THEMES[entry.advancementId]
@@ -359,7 +359,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
       {activeTab === "news" && (
         <div className="space-y-2">
           {data.links.length === 0 ? (
-            <p className="text-xs text-white/20 py-4 text-center">No news links submitted</p>
+            <p className="text-xs text-white/30 py-4 text-center">No news links submitted</p>
           ) : (
             data.links.map((link) => (
               <a
@@ -371,7 +371,7 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white/70 truncate">{link.title}</p>
-                  <span className="text-[10px] text-white/20 font-mono">
+                  <span className="text-[10px] text-white/30 font-mono">
                     score: {link.score}
                   </span>
                 </div>
@@ -503,7 +503,7 @@ export function ProfilePage() {
           )}
 
           {!guildUser.country && !guildUser.background && !guildUser.bio && guildUser.interests.length === 0 && (
-            <p className="text-sm text-white/20 text-center py-4">
+            <p className="text-sm text-white/30 text-center py-4">
               No profile details yet. Click &quot;Edit Profile&quot; to add your info.
             </p>
           )}
@@ -531,7 +531,7 @@ export function ProfilePage() {
             ].map((perm) => (
               <div key={perm.label} className="px-3 py-2.5 rounded-lg bg-red-500/[0.04] border border-red-500/10">
                 <p className="text-xs text-red-400/80 font-medium">{perm.label}</p>
-                <p className="text-[10px] text-white/20 mt-0.5">{perm.desc}</p>
+                <p className="text-[10px] text-white/30 mt-0.5">{perm.desc}</p>
               </div>
             ))}
           </div>
@@ -563,7 +563,7 @@ export function ProfilePage() {
               }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-white/20 mt-2 font-mono">
+          <div className="flex justify-between text-[10px] text-white/30 mt-2 font-mono">
             <span>0</span>
             <span>100 Contributor</span>
             <span>3000 Moderator</span>

@@ -103,7 +103,7 @@ export function VouchPanel() {
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm transition-colors"
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm transition-colors"
         >
           Search
         </button>
@@ -118,7 +118,7 @@ export function VouchPanel() {
           <button
             onClick={handleVouch}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
           >
             {loading ? "Vouching..." : "Vouch"}
           </button>
