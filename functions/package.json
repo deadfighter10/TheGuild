@@ -2,7 +2,7 @@
   "name": "the-guild-functions",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.js",
+  "main": "lib/src/index.js",
   "engines": {
     "node": "20"
   },

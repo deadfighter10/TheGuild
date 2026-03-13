@@ -65,6 +65,9 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Build functions
+        run: cd functions && npm ci && npm run build
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
