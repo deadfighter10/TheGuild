@@ -27,8 +27,13 @@ jobs:
       - name: Run tests
         run: bun run test:run
 
+      - name: Install functions dependencies
+        run: cd functions && npm ci
+
+      - name: Build functions
+        run: cd functions && npm run build
+
       - name: Build
-        run: bun run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -67,9 +72,9 @@ jobs:
           channelId: live
           projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
-      - name: Deploy Firestore Rules
+      - name: Deploy Firestore Rules & Functions
         uses: w9jds/firebase-action@v13.22.1
         with:
-          args: deploy --only firestore:rules --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          args: deploy --only firestore:rules,functions --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

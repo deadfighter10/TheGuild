@@ -9,7 +9,8 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { getFunctions, httpsCallable } from "firebase/functions"
+import { db, app } from "@/lib/firebase"
 import type { GuildUser } from "@/domain/user"
 import type { UserBackground } from "@/domain/onboarding"
 import type { TreeNode } from "@/domain/node"
@@ -47,7 +48,9 @@ export async function updateUserField(uid: string, field: string, value: unknown
 }
 
 export async function deleteUser(uid: string): Promise<void> {
-  await deleteDoc(doc(db, "users", uid))
+  const functions = getFunctions(app)
+  const deleteUserAccount = httpsCallable(functions, "deleteUserAccount")
+  await deleteUserAccount({ uid })
 }
 
 export async function getAllNodes(): Promise<readonly TreeNode[]> {

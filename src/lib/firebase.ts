@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app"
 import { connectAuthEmulator, getAuth } from "firebase/auth"
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore"
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions"
 
 const isEmulator = import.meta.env["VITE_USE_EMULATORS"] === "true"
 
@@ -13,7 +14,7 @@ const firebaseConfig = {
   appId: import.meta.env["VITE_FIREBASE_APP_ID"] ?? "demo-app-id",
 }
 
-const app = initializeApp(firebaseConfig)
+export const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
@@ -21,4 +22,5 @@ export const db = getFirestore(app)
 if (isEmulator) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true })
   connectFirestoreEmulator(db, "127.0.0.1", 8080)
+  connectFunctionsEmulator(getFunctions(app), "127.0.0.1", 5001)
 }
