@@ -80,5 +80,5 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa-key.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
-          npx firebase-tools deploy --only firestore:rules,functions --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }} --non-interactive
+          npx firebase-tools deploy --only firestore:rules,functions --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }} --non-interactive --force
           rm /tmp/sa-key.json
