@@ -2,7 +2,7 @@
   "name": "the-guild-functions",
   "version": "0.1.0",
   "private": true,
-  "main": "scr/index.js",
+  "main": "scr/index.ts",
   "engines": {
     "node": "20"
   },
