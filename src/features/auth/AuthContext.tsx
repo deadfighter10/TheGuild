@@ -89,14 +89,23 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       bio: "",
     }
 
-    await setDoc(doc(db, "users", credential.user.uid), {
-      email: guildUser.email,
-      displayName: guildUser.displayName,
-      repPoints: guildUser.repPoints,
-      isSchoolEmail: guildUser.isSchoolEmail,
-      createdAt: guildUser.createdAt,
-      onboardingComplete: false,
-    })
+    try {
+      await setDoc(doc(db, "users", credential.user.uid), {
+        email: guildUser.email,
+        displayName: guildUser.displayName,
+        repPoints: guildUser.repPoints,
+        isSchoolEmail: guildUser.isSchoolEmail,
+        createdAt: guildUser.createdAt,
+        onboardingComplete: false,
+        bio: "",
+        country: null,
+        background: null,
+        interests: [],
+      })
+    } catch (error) {
+      await credential.user.delete()
+      throw error
+    }
 
     setState((prev) => ({ ...prev, guildUser }))
   }

@@ -28,11 +28,11 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.displayName.size() <= 50
-        && request.resource.data.bio.size() <= 500;
+        && (!('bio' in request.resource.data) || request.resource.data.bio.size() <= 500);
       allow update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.displayName.size() <= 50
-        && request.resource.data.bio.size() <= 500;
+        && (!('bio' in request.resource.data) || request.resource.data.bio.size() <= 500);
       allow delete: if request.auth != null && isAdminUser();
     }
 
