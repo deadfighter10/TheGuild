@@ -74,7 +74,7 @@ jobs:
           projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
       - name: Deploy Firestore Rules & Functions
-        uses: w9jds/firebase-action@v13.22.1
+        uses: w9jds/firebase-action@v15.10.0
         with:
           args: deploy --only firestore:rules,functions --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         env:
