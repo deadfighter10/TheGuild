@@ -26,9 +26,10 @@ import {
 import { logAuditEvent, getAuditLog } from "./audit-service"
 import type { AuditLogEntry } from "@/domain/audit-log"
 import { FlagsPanel } from "@/features/moderation/FlagsPanel"
+import { AnalyticsPanel } from "@/features/analytics/AnalyticsPanel"
 import { timeAgo } from "@/shared/utils/time"
 
-type AdminTab = "overview" | "users" | "nodes" | "library" | "newsroom" | "discussions" | "flags" | "audit"
+type AdminTab = "overview" | "analytics" | "users" | "nodes" | "library" | "newsroom" | "discussions" | "flags" | "audit"
 
 function advancementLabel(id: string): string {
   return ADVANCEMENT_THEMES[id]?.shortName ?? id
@@ -631,6 +632,7 @@ function AuditPanel() {
 
 const ADMIN_TABS: readonly { readonly key: AdminTab; readonly label: string; readonly icon: string }[] = [
   { key: "overview", label: "Overview", icon: "◉" },
+  { key: "analytics", label: "Analytics", icon: "◈" },
   { key: "users", label: "Users", icon: "◎" },
   { key: "nodes", label: "Ideas", icon: "◇" },
   { key: "library", label: "Library", icon: "▣" },
@@ -692,6 +694,7 @@ export function AdminPage() {
 
       <div className="mt-8">
         {activeTab === "overview" && <OverviewPanel stats={stats} />}
+        {activeTab === "analytics" && <AnalyticsPanel />}
         {activeTab === "users" && <UsersPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
         {activeTab === "nodes" && <NodesPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
         {activeTab === "library" && <LibraryPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}

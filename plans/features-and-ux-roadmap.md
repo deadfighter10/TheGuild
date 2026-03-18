@@ -188,7 +188,7 @@ Features that add value but aren't blocking growth. Pull into sprints as capacit
 
 ### Engagement & Gamification
 - **37. Weekly Challenges** — Auto-generated or admin-curated prompts per advancement
-- **45. Platform Analytics** — Custom built-in analytics (page views, growth, engagement, moderation health)
+- ~~**45. Platform Analytics**~~ DONE — Custom built-in analytics (page views, growth, engagement, moderation health)
 
 ---
 

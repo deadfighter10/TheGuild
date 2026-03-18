@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useFocusTrap, useEscapeKey } from "@/shared/hooks/use-focus-trap"
+import { usePageView } from "@/shared/hooks/use-page-view"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { isAdmin } from "@/domain/user"
@@ -232,6 +233,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const currentAdv = useCurrentAdvancement()
+  usePageView()
 
   useEffect(() => {
     setMobileMenuOpen(false)
