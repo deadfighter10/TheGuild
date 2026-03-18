@@ -7,6 +7,7 @@ export type AuditAction =
   | "delete_news_link"
   | "delete_thread"
   | "delete_reply"
+  | "resolve_flag"
 
 export type AuditLogEntry = {
   readonly id: string

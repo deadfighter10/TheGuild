@@ -5,13 +5,13 @@
   "type": "module",
   "license": "MIT",
   "author": "The Guild Contributors",
-  "homepage": "https://github.com/your-username/the-guild",
+  "homepage": "https://github.com/deadfighter10/TheGuild",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/the-guild.git"
+    "url": "https://github.com/deadfighter10/TheGuild.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/the-guild/issues"
+    "url": "https://github.com/deadfighter10/TheGuild/issues"
   },
   "keywords": [
     "open-science",
@@ -39,10 +39,12 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "firebase": "^11.0.0",
+    "fuse.js": "^7.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.8.3",

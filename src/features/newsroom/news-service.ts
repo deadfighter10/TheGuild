@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  addDoc,
   getDoc,
   getDocs,
   setDoc,
@@ -13,9 +12,13 @@ import {
   startAfter,
   increment,
   serverTimestamp,
+  onSnapshot,
+  writeBatch,
 } from "firebase/firestore"
 import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
+import { parseNewsLinkDoc } from "@/lib/firestore-schemas"
 import { validateSubmitNewsLink, validateVoteNewsLink } from "@/domain/news-link"
 import type { NewsLink, VoteValue } from "@/domain/news-link"
 
@@ -43,7 +46,14 @@ export async function submitNewsLink(params: SubmitLinkParams): Promise<SubmitLi
     return { success: false, reason: validation.reason }
   }
 
-  const docRef = await addDoc(collection(db, "newsLinks"), {
+  const rateCheck = await checkRateLimit(params.submitterId, "newsLinks")
+  if (!rateCheck.allowed) {
+    return { success: false, reason: rateCheck.reason }
+  }
+
+  const batch = writeBatch(db)
+  const newDocRef = doc(collection(db, "newsLinks"))
+  batch.set(newDocRef, {
     advancementId: params.advancementId,
     submitterId: params.submitterId,
     title: params.title.trim(),
@@ -51,8 +61,10 @@ export async function submitNewsLink(params: SubmitLinkParams): Promise<SubmitLi
     score: 0,
     createdAt: serverTimestamp(),
   })
+  addRateLimitToBatch(batch, params.submitterId, "newsLinks")
+  await batch.commit()
 
-  return { success: true, linkId: docRef.id }
+  return { success: true, linkId: newDocRef.id }
 }
 
 const PAGE_SIZE = 20
@@ -77,7 +89,7 @@ export async function getNewsLinks(
   const q = query(ref, ...constraints)
 
   const snapshot = await getDocs(q)
-  const items = snapshot.docs.map((docSnap) => docToLink(docSnap.id, docSnap.data()))
+  const items = snapshot.docs.map((docSnap) => parseNewsLinkDoc(docSnap.id, docSnap.data())).filter((item): item is NewsLink => item !== null)
   const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null
 
   return { items, lastDoc, hasMore: snapshot.docs.length === PAGE_SIZE }
@@ -98,7 +110,10 @@ export async function voteNewsLink(
     return { success: false, reason: "Link not found" }
   }
 
-  const link = docToLink(linkDoc.id, linkDoc.data())
+  const link = parseNewsLinkDoc(linkDoc.id, linkDoc.data())
+  if (!link) {
+    return { success: false, reason: "Invalid link data" }
+  }
 
   const voteId = `${userId}_${linkId}`
   const voteRef = doc(db, "newsVotes", voteId)
@@ -150,17 +165,27 @@ export async function getNewsLinksBySubmitter(submitterId: string): Promise<read
     where("submitterId", "==", submitterId),
   )
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((docSnap) => docToLink(docSnap.id, docSnap.data()))
+  return snapshot.docs.map((docSnap) => parseNewsLinkDoc(docSnap.id, docSnap.data())).filter((item): item is NewsLink => item !== null)
 }
 
-function docToLink(id: string, data: Record<string, unknown>): NewsLink {
-  return {
-    id,
-    advancementId: data["advancementId"] as string,
-    submitterId: data["submitterId"] as string,
-    title: data["title"] as string,
-    url: data["url"] as string,
-    score: data["score"] as number,
-    createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-  }
+export function subscribeToNewsLinks(
+  advancementId: string | undefined,
+  onData: (links: readonly NewsLink[]) => void,
+  onError: (error: Error) => void,
+): () => void {
+  const ref = collection(db, "newsLinks")
+  const constraints = [
+    ...(advancementId ? [where("advancementId", "==", advancementId)] : []),
+    orderBy("createdAt", "desc"),
+  ]
+  const q = query(ref, ...constraints)
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const links = snapshot.docs.map((docSnap) => parseNewsLinkDoc(docSnap.id, docSnap.data())).filter((item): item is NewsLink => item !== null)
+      onData(links)
+    },
+    onError,
+  )
 }

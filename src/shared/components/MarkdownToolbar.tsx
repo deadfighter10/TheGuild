@@ -64,6 +64,7 @@ export function MarkdownToolbar({ textareaRef, onUpdate }: MarkdownToolbarProps)
           type="button"
           onClick={() => applyAction(action)}
           title={action.label}
+          aria-label={action.label}
           className="px-2 py-1 text-[10px] font-mono text-white/30 hover:text-white/70 hover:bg-white/5 rounded transition-colors"
         >
           {action.icon}

@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useSearch } from "@/shared/hooks/use-search"
 import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { canContribute } from "@/domain/reputation"
-import { getNewsLinks, voteNewsLink, getUserVote } from "./news-service"
-import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
+import { subscribeToNewsLinks, voteNewsLink, getUserVote } from "./news-service"
+import { useRealtimeQuery } from "@/shared/hooks/use-realtime-query"
 import { SubmitLinkForm } from "./SubmitLinkForm"
 import type { NewsLink, VoteValue } from "@/domain/news-link"
+import { FlagButton } from "@/features/moderation/FlagButton"
 
 type NewsSortMode = "hot" | "new" | "top"
 
@@ -48,7 +50,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
 
   useEffect(() => {
     if (guildUser) {
-      getUserVote(guildUser.uid, link.id).then(setUserVote).catch(() => {})
+      getUserVote(guildUser.uid, link.id).then(setUserVote).catch((err) => console.error("Failed to fetch vote:", err))
     }
   }, [guildUser, link.id])
 
@@ -88,7 +90,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
   })()
 
   return (
-    <article className="group flex items-start gap-4 p-5 rounded-xl border border-white/5 bg-void-900 hover:bg-void-850 transition-colors">
+    <article className="group flex items-start gap-2 sm:gap-4 p-3 sm:p-5 rounded-xl border border-white/5 bg-void-900 hover:bg-void-850 transition-colors">
       {canVote && (
         <div className="shrink-0 flex flex-col items-center gap-0.5 pt-0.5">
           <button
@@ -160,6 +162,12 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
           <AdvancementIcon icon={theme.icon} size={14} />
         </div>
       )}
+
+      {guildUser && guildUser.uid !== link.submitterId && (
+        <div className="shrink-0">
+          <FlagButton targetCollection="newsLinks" targetId={link.id} targetTitle={link.title} />
+        </div>
+      )}
     </article>
   )
 }
@@ -167,59 +175,24 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
 export function NewsroomPage() {
   const { guildUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [links, setLinks] = useState<readonly NewsLink[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [showSubmitForm, setShowSubmitForm] = useState(false)
   const [sortMode, setSortMode] = useState<NewsSortMode>("hot")
 
   const activeAdvancement = searchParams.get("advancement") ?? undefined
 
-  const loadLinks = useCallback(async () => {
-    setLoading(true)
-    setCursor(null)
-    try {
-      const page = await getNewsLinks(activeAdvancement)
-      setLinks(page.items)
-      setCursor(page.lastDoc)
-      setHasMore(page.hasMore)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoading(false)
-    }
-  }, [activeAdvancement])
-
-  const loadMore = async () => {
-    if (!cursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const page = await getNewsLinks(activeAdvancement, cursor)
-      setLinks((prev) => [...prev, ...page.items])
-      setCursor(page.lastDoc)
-      setHasMore(page.hasMore)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoadingMore(false)
-    }
-  }
-
-  useEffect(() => {
-    loadLinks()
-  }, [loadLinks])
-
-  const [searchQuery, setSearchQuery] = useState("")
+  const subscribe = useCallback(
+    (onData: (items: readonly NewsLink[]) => void, onError: (error: Error) => void) =>
+      subscribeToNewsLinks(activeAdvancement, onData, onError),
+    [activeAdvancement],
+  )
+  const { data: links, loading } = useRealtimeQuery(subscribe)
 
   const sortedLinks = useMemo(() => sortLinks(links, sortMode), [links, sortMode])
 
-  const filteredLinks = useMemo(() => {
-    if (!searchQuery) return sortedLinks
-    const q = searchQuery.toLowerCase()
-    return sortedLinks.filter((l) => l.title.toLowerCase().includes(q) || l.url.toLowerCase().includes(q))
-  }, [sortedLinks, searchQuery])
+  const { query: searchQuery, setQuery: setSearchQuery, results: filteredLinks } = useSearch(
+    sortedLinks,
+    { keys: ["title", "url"], threshold: 0.4 },
+  )
 
   const canSubmit = guildUser ? canContribute(guildUser.repPoints) : false
 
@@ -232,7 +205,7 @@ export function NewsroomPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-4">
           <NewspaperIcon size={24} className="text-violet-400/60" />
@@ -252,7 +225,7 @@ export function NewsroomPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 mb-6 flex-wrap">
             <button
               onClick={() => handleFilterAdvancement(undefined)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
@@ -328,7 +301,6 @@ export function NewsroomPage() {
                 defaultAdvancementId={activeAdvancement}
                 onSubmitted={() => {
                   setShowSubmitForm(false)
-                  loadLinks()
                 }}
                 onCancel={() => setShowSubmitForm(false)}
               />
@@ -354,20 +326,8 @@ export function NewsroomPage() {
           ) : (
             <div className="space-y-3">
               {filteredLinks.map((link) => (
-                <NewsItem key={link.id} link={link} onVoted={loadLinks} />
+                <NewsItem key={link.id} link={link} onVoted={() => {}} />
               ))}
-
-              {hasMore && !searchQuery && (
-                <div className="text-center pt-4">
-                  <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="px-5 py-2 text-xs font-medium rounded-lg bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {loadingMore ? "Loading..." : "Load more"}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>

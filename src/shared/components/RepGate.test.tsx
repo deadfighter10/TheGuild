@@ -44,4 +44,22 @@ describe("RepGate", () => {
     )
     expect(container.innerHTML).toBe("")
   })
+
+  it("renders children when user is admin (rep = -1) regardless of required rep", () => {
+    render(
+      <RepGate currentRep={-1} requiredRep={3000}>
+        <p>Admin access</p>
+      </RepGate>,
+    )
+    expect(screen.getByText("Admin access")).toBeTruthy()
+  })
+
+  it("renders children even with hideWhenLocked when rep is sufficient", () => {
+    render(
+      <RepGate currentRep={200} requiredRep={100} hideWhenLocked>
+        <p>Visible content</p>
+      </RepGate>,
+    )
+    expect(screen.getByText("Visible content")).toBeTruthy()
+  })
 })

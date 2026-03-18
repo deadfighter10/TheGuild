@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { doc, updateDoc } from "firebase/firestore"
 import { updateProfile } from "firebase/auth"
-import { db, auth } from "@/lib/firebase"
+import { getFunctions, httpsCallable } from "firebase/functions"
+import { db, auth, app } from "@/lib/firebase"
 import { useAuth } from "@/features/auth/AuthContext"
 import { getRepTier, isAdmin } from "@/domain/user"
 import { ADVANCEMENTS } from "@/domain/advancement"
@@ -14,11 +15,14 @@ import { AdvancementIcon, ChevronRightIcon } from "@/shared/components/Icons"
 import { getNodesByAuthor } from "@/features/tree/node-service"
 import { getLibraryEntriesByAuthor } from "@/features/library/library-service"
 import { getNewsLinksBySubmitter } from "@/features/newsroom/news-service"
+import { getUserBookmarks } from "@/features/bookmarks/bookmark-service"
 import { useToast } from "@/shared/components/Toast"
 import { Link } from "react-router-dom"
+import { UserAvatar } from "@/shared/components/UserAvatar"
 import type { TreeNode } from "@/domain/node"
 import type { LibraryEntry } from "@/domain/library-entry"
 import type { NewsLink } from "@/domain/news-link"
+import type { Bookmark, BookmarkTargetType } from "@/domain/bookmark"
 
 const TIER_LABELS = {
   observer: "Observer",
@@ -61,6 +65,7 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
   const [background, setBackground] = useState<UserBackground | "">(guildUser?.background ?? "")
   const [interests, setInterests] = useState<readonly string[]>(guildUser?.interests ?? [])
   const [bio, setBio] = useState(guildUser?.bio ?? "")
+  const [photoURL, setPhotoURL] = useState(guildUser?.photoURL ?? "")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
@@ -95,7 +100,9 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
     setSaving(true)
     setError("")
     try {
-      const updates: Record<string, unknown> = { country, background, interests, bio }
+      const trimmedPhoto = photoURL.trim()
+      const safePhotoURL = trimmedPhoto && /^https?:\/\//i.test(trimmedPhoto) ? trimmedPhoto : null
+      const updates: Record<string, unknown> = { country, background, interests, bio, photoURL: safePhotoURL }
       if (trimmedName !== guildUser.displayName) {
         updates["displayName"] = trimmedName
         if (auth.currentUser) {
@@ -200,6 +207,22 @@ function EditProfileForm({ onClose }: { readonly onClose: () => void }) {
             className="w-full px-3 py-2 text-sm rounded-lg border border-white/15 bg-void-950 text-white/70 placeholder-white/25 focus:outline-none focus:border-white/30 resize-none"
           />
           <span className="text-[10px] text-white/30 font-mono">{bio.length}/300</span>
+        </div>
+
+        <div>
+          <label className="block text-xs text-white/40 mb-2">Profile Photo URL</label>
+          <div className="flex items-center gap-3">
+            {photoURL && <UserAvatar name={displayName} photoURL={photoURL} size="md" />}
+            <input
+              type="url"
+              value={photoURL}
+              onChange={(e) => setPhotoURL(e.target.value)}
+              maxLength={500}
+              placeholder="https://example.com/photo.jpg"
+              className="flex-1 px-3 py-2 text-sm rounded-lg border border-white/15 bg-void-950 text-white/70 placeholder-white/25 focus:outline-none focus:border-white/30"
+            />
+          </div>
+          <span className="text-[10px] text-white/30 font-mono mt-1 block">Paste a link to your profile picture</span>
         </div>
 
         {error && <p className="text-xs text-red-400/70">{error}</p>}
@@ -385,6 +408,116 @@ function ContributionsSection({ userId }: { readonly userId: string }) {
   )
 }
 
+const BOOKMARK_TYPE_LABELS: Record<BookmarkTargetType, string> = {
+  node: "Ideas",
+  libraryEntry: "Library",
+  newsLink: "News",
+  discussionThread: "Discussions",
+}
+
+function bookmarkLink(bookmark: Bookmark): string {
+  switch (bookmark.targetType) {
+    case "node":
+      return `/advancements/${bookmark.advancementId}/tree/${bookmark.targetId}`
+    case "libraryEntry":
+      return `/library/${bookmark.targetId}`
+    case "newsLink":
+      return `/newsroom`
+    case "discussionThread":
+      return `/advancements/${bookmark.advancementId}`
+  }
+}
+
+function BookmarksSection({ userId }: { readonly userId: string }) {
+  const [bookmarks, setBookmarks] = useState<readonly Bookmark[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState<BookmarkTargetType | "all">("all")
+
+  useEffect(() => {
+    getUserBookmarks(userId)
+      .then(setBookmarks)
+      .catch((err) => console.error("Failed to load bookmarks:", err))
+      .finally(() => setLoading(false))
+  }, [userId])
+
+  if (loading) {
+    return (
+      <div className="py-6 text-center">
+        <p className="text-xs text-white/30 font-mono">Loading bookmarks...</p>
+      </div>
+    )
+  }
+
+  if (bookmarks.length === 0) {
+    return (
+      <div className="py-8 text-center border border-dashed border-white/10 rounded-xl">
+        <p className="text-sm text-white/30 mb-1">No bookmarks yet</p>
+        <p className="text-xs text-white/25">Bookmark ideas, library entries, and more to find them here</p>
+      </div>
+    )
+  }
+
+  const types = [...new Set(bookmarks.map((b) => b.targetType))]
+  const filtered = filterType === "all" ? bookmarks : bookmarks.filter((b) => b.targetType === filterType)
+
+  return (
+    <div>
+      {types.length > 1 && (
+        <div className="flex items-center gap-1 mb-4">
+          <button
+            onClick={() => setFilterType("all")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              filterType === "all" ? "bg-white/10 text-white" : "text-white/30 hover:text-white/50 hover:bg-white/5"
+            }`}
+          >
+            All <span className="ml-1 font-mono text-[10px] opacity-60">{bookmarks.length}</span>
+          </button>
+          {types.map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                filterType === type ? "bg-white/10 text-white" : "text-white/30 hover:text-white/50 hover:bg-white/5"
+              }`}
+            >
+              {BOOKMARK_TYPE_LABELS[type]}
+              <span className="ml-1 font-mono text-[10px] opacity-60">
+                {bookmarks.filter((b) => b.targetType === type).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map((bookmark) => {
+          const theme = ADVANCEMENT_THEMES[bookmark.advancementId]
+          return (
+            <Link
+              key={bookmark.id}
+              to={bookmarkLink(bookmark)}
+              className="flex items-center gap-4 p-4 rounded-lg border border-white/5 bg-void-900 hover:bg-void-850 transition-colors"
+            >
+              {theme && (
+                <div className={`w-8 h-8 rounded-lg ${theme.bgClass} ${theme.colorClass} flex items-center justify-center opacity-50`}>
+                  <AdvancementIcon icon={theme.icon} size={14} />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white/70 truncate">{bookmark.targetTitle}</p>
+                <span className="text-[10px] text-white/30 font-mono">
+                  {BOOKMARK_TYPE_LABELS[bookmark.targetType]}
+                </span>
+              </div>
+              <ChevronRightIcon size={14} className="text-white/15" />
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function ProfilePage() {
   const { guildUser } = useAuth()
   const [editingProfile, setEditingProfile] = useState(false)
@@ -396,21 +529,17 @@ export function ProfilePage() {
   const style = TIER_STYLES[tier]
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
-      <div className="flex items-start gap-6 mb-10">
-        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-display ${
-          admin
-            ? "bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/20 text-red-400/80"
-            : "bg-gradient-to-br from-cyan-400/20 to-violet-500/20 border border-white/10 text-white/70"
-        }`}>
-          {admin ? (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
+      <div className="flex items-start gap-4 sm:gap-6 mb-8 sm:mb-10">
+        {admin ? (
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-xl sm:text-2xl font-display bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/20 text-red-400/80">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-          ) : (
-            guildUser.displayName.charAt(0).toUpperCase()
-          )}
-        </div>
+          </div>
+        ) : (
+          <UserAvatar name={guildUser.displayName} photoURL={guildUser.photoURL} size="lg" />
+        )}
         <div className="flex-1">
           <h1 className="font-display text-3xl text-white">{guildUser.displayName}</h1>
           <p className="text-white/30 text-sm mt-1 font-mono">{guildUser.email}</p>
@@ -555,7 +684,7 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <div className="w-full bg-void-800 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-void-800 rounded-full h-1.5 overflow-hidden" role="progressbar" aria-valuenow={guildUser.repPoints} aria-valuemin={0} aria-valuemax={3000} aria-label={`Reputation: ${guildUser.repPoints} of 3000`}>
             <div
               className={`h-full rounded-full ${style.bar} transition-all duration-500`}
               style={{
@@ -580,6 +709,13 @@ export function ProfilePage() {
           Your Contributions
         </h2>
         <ContributionsSection userId={guildUser.uid} />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-white/40 mb-4">
+          Bookmarks
+        </h2>
+        <BookmarksSection userId={guildUser.uid} />
       </div>
 
       <div>
@@ -613,6 +749,50 @@ export function ProfilePage() {
             )
           })}
         </div>
+      </div>
+
+      <SecuritySection />
+    </div>
+  )
+}
+
+function SecuritySection() {
+  const { logout } = useAuth()
+  const [revoking, setRevoking] = useState(false)
+  const [revoked, setRevoked] = useState(false)
+
+  const handleRevokeAll = async () => {
+    setRevoking(true)
+    try {
+      const functions = getFunctions(app)
+      const revokeAll = httpsCallable(functions, "revokeAllSessions")
+      await revokeAll()
+      setRevoked(true)
+      setTimeout(() => logout(), 1500)
+    } catch {
+      setRevoking(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 pt-8 border-t border-white/5">
+      <h2 className="font-mono text-xs uppercase tracking-widest text-white/40 mb-4">
+        Security
+      </h2>
+      <div className="rounded-xl border border-white/5 bg-void-900 p-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-white/60">Sign out everywhere</p>
+          <p className="text-[10px] text-white/25 mt-0.5">
+            Revokes all active sessions on all devices
+          </p>
+        </div>
+        <button
+          onClick={handleRevokeAll}
+          disabled={revoking || revoked}
+          className="px-4 py-2 text-xs font-medium rounded-lg bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400 border border-red-500/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {revoked ? "Sessions revoked" : revoking ? "Revoking..." : "Revoke all sessions"}
+        </button>
       </div>
     </div>
   )

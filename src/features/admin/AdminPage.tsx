@@ -25,19 +25,10 @@ import {
 } from "./admin-service"
 import { logAuditEvent, getAuditLog } from "./audit-service"
 import type { AuditLogEntry } from "@/domain/audit-log"
+import { FlagsPanel } from "@/features/moderation/FlagsPanel"
+import { timeAgo } from "@/shared/utils/time"
 
-type AdminTab = "overview" | "users" | "nodes" | "library" | "newsroom" | "discussions" | "audit"
-
-function timeAgo(date: Date): string {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (s < 60) return "just now"
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  return `${d}d ago`
-}
+type AdminTab = "overview" | "users" | "nodes" | "library" | "newsroom" | "discussions" | "flags" | "audit"
 
 function advancementLabel(id: string): string {
   return ADVANCEMENT_THEMES[id]?.shortName ?? id
@@ -162,7 +153,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
           Users <span className="text-white/15">({users.length})</span>
         </h2>
@@ -171,7 +162,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search users..."
-          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-56"
+          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-full sm:w-56"
         />
       </div>
 
@@ -181,10 +172,10 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
             <thead>
               <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                 <th className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">User</th>
-                <th className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">Email</th>
+                <th className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25 hidden sm:table-cell">Email</th>
                 <th className="text-center px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">Rep</th>
                 <th className="text-center px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">School</th>
-                <th className="text-center px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">Joined</th>
+                <th className="text-center px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25 hidden md:table-cell">Joined</th>
                 <th className="text-right px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/25">Actions</th>
               </tr>
             </thead>
@@ -197,7 +188,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
                       <p className="text-white/20 font-mono text-[10px] mt-0.5 truncate max-w-[120px]">{user.uid}</p>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-white/40 font-mono">{user.email}</td>
+                  <td className="px-4 py-3 text-white/40 font-mono hidden sm:table-cell">{user.email}</td>
                   <td className="px-4 py-3 text-center">
                     {editingRep === user.uid ? (
                       <span className="flex items-center justify-center gap-1">
@@ -232,7 +223,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
                       <span className="text-white/15">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center text-white/25">{timeAgo(user.createdAt)}</td>
+                  <td className="px-4 py-3 text-center text-white/25 hidden md:table-cell">{timeAgo(user.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     {user.repPoints !== -1 && (
                       <ConfirmButton label="Delete" onConfirm={() => handleDelete(user.uid)} />
@@ -297,7 +288,7 @@ function NodesPanel({ actor }: { readonly actor: ActorInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
           Ideas <span className="text-white/15">({nodes.length})</span>
         </h2>
@@ -306,7 +297,7 @@ function NodesPanel({ actor }: { readonly actor: ActorInfo }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search ideas..."
-          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-56"
+          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-full sm:w-56"
         />
       </div>
 
@@ -379,7 +370,7 @@ function LibraryPanel({ actor }: { readonly actor: ActorInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
           Library Entries <span className="text-white/15">({entries.length})</span>
         </h2>
@@ -388,7 +379,7 @@ function LibraryPanel({ actor }: { readonly actor: ActorInfo }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search entries..."
-          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-56"
+          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-full sm:w-56"
         />
       </div>
 
@@ -450,7 +441,7 @@ function NewsPanel({ actor }: { readonly actor: ActorInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
           News Links <span className="text-white/15">({links.length})</span>
         </h2>
@@ -459,7 +450,7 @@ function NewsPanel({ actor }: { readonly actor: ActorInfo }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search links..."
-          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-56"
+          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-full sm:w-56"
         />
       </div>
 
@@ -523,7 +514,7 @@ function ThreadsPanel({ actor }: { readonly actor: ActorInfo }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="font-mono text-xs uppercase tracking-widest text-white/30">
           Discussion Threads <span className="text-white/15">({threads.length})</span>
         </h2>
@@ -532,7 +523,7 @@ function ThreadsPanel({ actor }: { readonly actor: ActorInfo }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search threads..."
-          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-56"
+          className="px-3 py-1.5 text-xs rounded-lg bg-white/[0.03] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:outline-none focus:border-white/15 w-full sm:w-56"
         />
       </div>
 
@@ -645,6 +636,7 @@ const ADMIN_TABS: readonly { readonly key: AdminTab; readonly label: string; rea
   { key: "library", label: "Library", icon: "▣" },
   { key: "newsroom", label: "News", icon: "▤" },
   { key: "discussions", label: "Threads", icon: "▧" },
+  { key: "flags", label: "Flags", icon: "⚑" },
   { key: "audit", label: "Audit Log", icon: "◆" },
 ]
 
@@ -654,7 +646,7 @@ export function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
 
   useEffect(() => {
-    getAdminStats().then(setStats).catch(() => {})
+    getAdminStats().then(setStats).catch((err) => console.error("Failed to load admin stats:", err))
   }, [])
 
   if (!guildUser || !isAdmin(guildUser.repPoints)) {
@@ -681,7 +673,7 @@ export function AdminPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 mb-8 overflow-x-auto scrollbar-none border-b border-white/[0.06] -mb-px">
+      <div className="flex items-center gap-1 mb-8 overflow-x-auto scrollbar-none border-b border-white/[0.06] -mb-px -mx-6 px-6 sm:mx-0 sm:px-0">
         {ADMIN_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -705,6 +697,7 @@ export function AdminPage() {
         {activeTab === "library" && <LibraryPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
         {activeTab === "newsroom" && <NewsPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
         {activeTab === "discussions" && <ThreadsPanel actor={{ actorId: guildUser.uid, actorName: guildUser.displayName }} />}
+        {activeTab === "flags" && <FlagsPanel actorId={guildUser.uid} actorName={guildUser.displayName} />}
         {activeTab === "audit" && <AuditPanel />}
       </div>
     </div>

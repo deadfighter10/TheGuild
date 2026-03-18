@@ -6,12 +6,14 @@ export type GuildUser = {
   readonly displayName: string
   readonly repPoints: number
   readonly isSchoolEmail: boolean
+  readonly emailVerified: boolean
   readonly createdAt: Date
   readonly onboardingComplete: boolean
   readonly country: string | null
   readonly background: UserBackground | null
   readonly interests: readonly string[]
   readonly bio: string
+  readonly photoURL: string | null
 }
 
 export type RepTier = "observer" | "contributor" | "moderator"

@@ -7,6 +7,7 @@ import type { GuildUser } from "@/domain/user"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { AdvancementIcon } from "@/shared/components/Icons"
+import { UserAvatar } from "@/shared/components/UserAvatar"
 import { getNodesByAuthor } from "@/features/tree/node-service"
 import { getLibraryEntriesByAuthor } from "@/features/library/library-service"
 import { getNewsLinksBySubmitter } from "@/features/newsroom/news-service"
@@ -103,9 +104,7 @@ export function PublicProfilePage() {
       </nav>
 
       <div className="flex items-start gap-6 mb-8">
-        <div className="shrink-0 w-16 h-16 rounded-full bg-void-800 border border-white/10 flex items-center justify-center text-xl font-display text-white/50">
-          {user.displayName.charAt(0).toUpperCase()}
-        </div>
+        <UserAvatar name={user.displayName} photoURL={user.photoURL} size="lg" />
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-1">
             <h1 className="font-display text-2xl text-white">{user.displayName}</h1>

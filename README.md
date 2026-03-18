@@ -1,14 +1,12 @@
 # The Guild
 
-An open hub for contributors working on humanity's biggest scientific advancements.
-
-Built with React 19, TypeScript (strict mode), Firebase, Tailwind CSS, and Three.js.
+An open-source platform where researchers, engineers, students, and curious minds collaborate on humanity's biggest scientific advancements.
 
 ---
 
 ## What is The Guild?
 
-The Guild is a platform where researchers, engineers, students, and curious minds collaborate on six of humanity's most important frontiers:
+The Guild is a living, community-driven hub focused on six of humanity's most important frontiers:
 
 - **Longevity** — Telomerase activation and senolytics (cellular aging)
 - **Neurotech** — Brain-machine interfaces and neural prosthetics
@@ -17,28 +15,51 @@ The Guild is a platform where researchers, engineers, students, and curious mind
 - **Gene Edit** — CRISPR-Cas9 (gene editing)
 - **AAGI** — True autonomous artificial general intelligence
 
+This is not a library or framework you install. It is a **platform** — a single shared instance where the community contributes knowledge, ideas, and research together. The codebase is fully open source so anyone can contribute to building and improving it.
+
 ### Core Features
 
 | Feature | Description |
 |---------|-------------|
-| **The Tree** | Visual knowledge graph per advancement. Ideas branch into sub-ideas, color-coded by status: green (proven), red (theoretical), black (disproved). |
-| **The Grand Library** | Curated learning resources — articles, videos, papers, external sources — to catch up to the cutting edge. |
-| **The Newsroom** | Aggregated news and papers about each advancement from real-world sources and hub discoveries. |
+| **The Tree** | Visual knowledge graph per advancement. Ideas branch into sub-ideas, color-coded by status: green (proven), red (theoretical), black (disproved). Fuzzy search, node detail pages, lineage breadcrumbs. |
+| **The Grand Library** | Curated learning resources — articles, videos, papers, external sources — with version history, difficulty levels, and peer contributions. |
+| **The Newsroom** | Aggregated news and papers about each advancement. Community voting (hot/new/top sorting), fuzzy search, link submission. |
 | **The Pool** | Community-funded treasury. Maintenance first, remainder funds contributors and experiments. |
-| **Discussions** | Threaded conversations scoped to each advancement. |
-| **Reputation System** | Merit-based point system. Earn Rep through school email verification, vouches, contributions, and breakthroughs. |
+| **Discussions** | Threaded conversations scoped to each advancement with pagination, editing, and deletion. |
+| **Notifications** | Real-time notification bell for replies, supports, vouches, flags, and rep changes. |
+| **Bookmarks** | Save nodes, library entries, news links, and discussion threads for later. |
+| **Moderation** | Community flagging system with admin review panel. Content flags with reason categories and resolution workflow. |
+| **Reputation System** | Merit-based point system. Earn Rep through school email verification, vouches, contributions, and breakthroughs. Rate-limited writes prevent abuse. |
 
 ### Reputation Ladder
 
 | Rep Range | Tier | Access |
 |-----------|------|--------|
-| 0–99 | Observer | Read access, supervised small contributions |
-| 100–2,999 | Contributor | Full contributions, ideas, Discord, voting |
+| 0-99 | Observer | Read access, supervised small contributions |
+| 100-2,999 | Contributor | Full contributions, ideas, Discord, voting |
 | 3,000+ | Moderator | Moderation tools, governance votes |
 
 ---
 
-## Getting Started
+## Contributing
+
+The Guild is built by its community. Whether you're fixing a bug, adding a feature, improving accessibility, or writing tests — all contributions matter.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide. Here's the short version:
+
+1. Pick an issue or propose a change
+2. Clone the repo and set up your local environment (see below)
+3. Write tests for new functionality (we practice TDD)
+4. Ensure `bun run lint` and `bun run test:run` pass
+5. Open a pull request against `master`
+
+See the [open issues](https://github.com/deadfighter10/TheGuild/issues) for areas where help is needed.
+
+---
+
+## Development Setup
+
+To contribute code, you'll need a local development environment.
 
 ### Prerequisites
 
@@ -46,27 +67,18 @@ The Guild is a platform where researchers, engineers, students, and curious mind
 - [Bun](https://bun.sh/) (recommended) or npm
 - [Firebase CLI](https://firebase.google.com/docs/cli) (for local development with emulators)
 
-### Setup
+### Getting the Code
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/the-guild.git
+git clone https://github.com/deadfighter10/TheGuild.git
 cd the-guild
-
-# Install dependencies
-bun install    # or: npm install
-
-# Copy environment config
+bun install
 cp .env.example .env.local
 ```
 
-### Firebase Configuration
+### Running Locally
 
-The app uses Firebase for authentication and Firestore for data. You have two options:
-
-**Option A: Use Firebase Emulators (recommended for development)**
-
-No real Firebase project needed. The emulators run locally:
+The app uses Firebase for authentication and Firestore for data. For local development, use the Firebase Emulators — no real Firebase project needed:
 
 ```bash
 # Start emulators + dev server together
@@ -79,23 +91,9 @@ bun run dev          # Terminal 2
 
 Add `VITE_USE_EMULATORS=true` to your `.env.local` when using emulators.
 
-**Option B: Use a real Firebase project**
+If you need to connect to a real Firebase project instead, see [Firebase Configuration](#firebase-configuration) below.
 
-1. Create a project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication (Email/Password provider)
-3. Create a Firestore database
-4. Copy your config values into `.env.local`:
-
-```env
-VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-```
-
-### Development
+### Commands
 
 ```bash
 bun run dev          # Start dev server (http://localhost:5173)
@@ -106,29 +104,6 @@ bun run test:run     # Run tests once
 bun run lint         # Type-check without emitting
 ```
 
-### Deployment
-
-Pushing to `main` automatically deploys to Firebase Hosting via GitHub Actions.
-
-To set this up on your fork:
-
-1. In your Firebase project, go to **Project Settings > Service accounts**
-2. Click **Generate new private key** to download a JSON key file
-3. In your GitHub repo, go to **Settings > Secrets and variables > Actions**
-4. Add these repository secrets:
-
-| Secret | Value |
-|--------|-------|
-| `FIREBASE_SERVICE_ACCOUNT` | Entire JSON key file contents |
-| `VITE_FIREBASE_API_KEY` | Your Firebase API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | e.g. `my-project.firebaseapp.com` |
-| `VITE_FIREBASE_PROJECT_ID` | e.g. `my-project-abc123` |
-| `VITE_FIREBASE_STORAGE_BUCKET` | e.g. `my-project.firebasestorage.app` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Your sender ID |
-| `VITE_FIREBASE_APP_ID` | Your app ID |
-
-Every push to `main` will: type-check, test, build, then deploy hosting + Firestore rules.
-
 ---
 
 ## Project Structure
@@ -136,30 +111,43 @@ Every push to `main` will: type-check, test, build, then deploy hosting + Firest
 ```
 src/
 ├── domain/              # Business logic, types, and validation
-│   ├── advancement.ts   # Advancement definitions
+│   ├── advancement.ts   # Advancement definitions and themes
 │   ├── node.ts          # Tree node types and validation
 │   ├── reputation.ts    # Rep thresholds and gate functions
 │   ├── user.ts          # User types and tier logic
+│   ├── notification.ts  # Notification types and formatting
+│   ├── flag.ts          # Content flag types and validation
+│   ├── news-link.ts     # News link types and validation
+│   ├── discussion.ts    # Discussion types and validation
+│   ├── library-entry.ts # Library entry types and validation
+│   ├── bookmark.ts      # Bookmark types
 │   └── *.test.ts        # Co-located domain tests
 ├── features/            # Feature modules (UI + services)
 │   ├── admin/           # Admin panel (CRUD for all content)
 │   ├── advancements/    # Advancement browsing and detail pages
 │   ├── auth/            # Authentication (Firebase Auth)
+│   ├── bookmarks/       # Content bookmarking
 │   ├── discussions/     # Threaded discussions per advancement
 │   ├── globe/           # 3D globe visualization (Three.js)
 │   ├── home/            # Landing page and dashboard
-│   ├── library/         # Grand Library (curated resources)
+│   ├── library/         # Grand Library (curated resources + versioning)
+│   ├── moderation/      # Content flagging and moderation
 │   ├── newsroom/        # News link aggregation and voting
+│   ├── notifications/   # Notification bell and service
 │   ├── onboarding/      # New user onboarding flow
 │   ├── pool/            # The Pool (community treasury)
 │   ├── profile/         # User profile and settings
-│   ├── tree/            # The Tree (knowledge graph)
+│   ├── tree/            # The Tree (knowledge graph + node detail)
 │   └── vouch/           # Vouch system for Rep
 ├── shared/              # Shared components and utilities
-│   └── components/      # Layout, Icons, ErrorBoundary, etc.
+│   ├── components/      # Layout, Icons, Toast, RepGate, Markdown, etc.
+│   ├── hooks/           # Reusable hooks (useSearch, useFocusTrap, useRealtimeQuery)
+│   └── utils/           # Utility functions (timeAgo, etc.)
 ├── lib/                 # External service configuration
-│   └── firebase.ts      # Firebase initialization
-├── App.tsx              # Route configuration
+│   ├── firebase.ts      # Firebase initialization
+│   ├── firestore-schemas.ts  # Zod schemas for Firestore document validation
+│   └── rate-limit.ts    # Rate limiting (hourly/daily counters)
+├── App.tsx              # Route configuration (lazy-loaded pages)
 ├── main.tsx             # Entry point
 └── index.css            # Tailwind base + custom styles
 ```
@@ -168,7 +156,8 @@ src/
 
 - **`domain/`** contains pure business logic with no framework dependencies. All validation functions are tested independently.
 - **`features/`** are self-contained modules. Each has its own components, service layer (Firestore calls), and page components.
-- **`shared/`** holds reusable UI components used across features.
+- **`shared/`** holds reusable UI components, custom hooks, and utility functions used across features.
+- **`lib/`** contains external service configuration, Zod schemas for Firestore document validation at read boundaries, and rate limiting.
 - Routes are lazy-loaded with `React.lazy` for code splitting.
 
 ---
@@ -181,25 +170,26 @@ src/
 | Language | TypeScript 5.7 (strict mode, all flags enabled) |
 | Build | Vite 6 |
 | Styling | Tailwind CSS 3.4 |
-| Backend | Firebase (Auth + Firestore) |
+| Backend | Firebase (Auth + Firestore + Cloud Functions) |
+| Validation | Zod 4 (Firestore read boundaries) |
+| Search | Fuse.js 7 (client-side fuzzy search) |
 | 3D | Three.js + React Three Fiber |
-| Testing | Vitest + Testing Library |
+| Testing | Vitest + Testing Library (370+ tests) |
+| CI/CD | GitHub Actions (lint, test, build, deploy) |
 | Runtime | Bun (also works with Node.js + npm) |
 
 ---
 
-## Contributing
+## CI/CD
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+Every push to `master` triggers the GitHub Actions pipeline:
 
-Quick version:
+1. **Type-check** — `tsc --noEmit`
+2. **Tests** — `vitest run` (370+ tests)
+3. **Build** — Vite production build + Cloud Functions build
+4. **Deploy** — Firebase Hosting, Firestore rules, and Cloud Functions
 
-1. Fork the repo and create a branch from `main`
-2. Write tests for new functionality
-3. Ensure `bun run lint` and `bun run test:run` pass
-4. Submit a pull request
-
-See the [open issues](https://github.com/your-username/the-guild/issues) for areas where help is needed.
+Pull requests run steps 1-3 automatically. Deployment only happens on merge to `master`.
 
 ---
 

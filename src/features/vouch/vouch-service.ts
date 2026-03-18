@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   runTransaction,
@@ -9,6 +10,8 @@ import {
 import { db } from "@/lib/firebase"
 import { validateVouch, type VouchValidation } from "@/domain/vouch"
 import { REP_THRESHOLDS } from "@/domain/reputation"
+import { createNotification } from "@/features/notifications/notification-service"
+import { formatNotificationMessage, notificationLink } from "@/domain/notification"
 
 export async function vouchForUser(
   voucherId: string,
@@ -52,6 +55,16 @@ export async function vouchForUser(
       repPoints: currentRep + REP_THRESHOLDS.vouchBonus,
     })
   })
+
+  // Notify the vouchee
+  const voucherDoc = await getDoc(doc(db, "users", voucherId))
+  const voucherName = (voucherDoc.data()?.["displayName"] as string) ?? "Someone"
+  createNotification({
+    userId: voucheeId,
+    type: "vouch",
+    message: formatNotificationMessage({ type: "vouch", actorName: voucherName }),
+    link: notificationLink({ type: "vouch" }),
+  }).catch((err) => console.error("Failed to send vouch notification:", err))
 
   return { valid: true }
 }

@@ -3,15 +3,17 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendEmailVerification,
   signOut,
   updateProfile,
   type User,
 } from "firebase/auth"
 import { doc, getDoc, setDoc } from "firebase/firestore"
-import { auth, db } from "@/lib/firebase"
+import { getFunctions, httpsCallable } from "firebase/functions"
+import { auth, db, app } from "@/lib/firebase"
 import { calculateInitialRep, isSchoolEmail } from "@/domain/reputation"
 import type { GuildUser } from "@/domain/user"
-import type { UserBackground } from "@/domain/onboarding"
+import { parseGuildUserDoc } from "@/lib/firestore-schemas"
 
 type AuthState = {
   readonly firebaseUser: User | null
@@ -24,6 +26,7 @@ type AuthActions = {
   readonly login: (email: string, password: string) => Promise<void>
   readonly logout: () => Promise<void>
   readonly refreshUser: () => Promise<void>
+  readonly resendVerificationEmail: () => Promise<void>
 }
 
 type AuthContextValue = AuthState & AuthActions
@@ -41,18 +44,21 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     const userDoc = await getDoc(doc(db, "users", uid))
     const data = userDoc.data()
     if (!data) return null
-    return {
-      uid,
-      email: data["email"] as string,
-      displayName: data["displayName"] as string,
-      repPoints: data["repPoints"] as number,
-      isSchoolEmail: data["isSchoolEmail"] as boolean,
-      createdAt: (data["createdAt"] as { toDate: () => Date }).toDate(),
-      onboardingComplete: (data["onboardingComplete"] as boolean | undefined) ?? false,
-      country: (data["country"] as string | undefined) ?? null,
-      background: (data["background"] as UserBackground | undefined) ?? null,
-      interests: (data["interests"] as readonly string[] | undefined) ?? [],
-      bio: (data["bio"] as string | undefined) ?? "",
+    return parseGuildUserDoc(uid, data as Record<string, unknown>)
+  }
+
+  const checkEmailVerificationBonus = async (firebaseUser: User, guildUser: GuildUser | null) => {
+    if (!guildUser) return
+    if (guildUser.emailVerified) return
+    if (!firebaseUser.emailVerified) return
+    if (!guildUser.isSchoolEmail) return
+
+    try {
+      const functions = getFunctions(app)
+      const claimSchoolBonus = httpsCallable(functions, "claimSchoolEmailBonus")
+      await claimSchoolBonus()
+    } catch {
+      // Bonus will be claimed on next login
     }
   }
 
@@ -60,7 +66,9 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const guildUser = await fetchGuildUser(firebaseUser.uid)
-        setState({ firebaseUser, guildUser, loading: false })
+        await checkEmailVerificationBonus(firebaseUser, guildUser)
+        const refreshedUser = guildUser ? await fetchGuildUser(firebaseUser.uid) : null
+        setState({ firebaseUser, guildUser: refreshedUser ?? guildUser, loading: false })
       } else {
         setState({ firebaseUser: null, guildUser: null, loading: false })
       }
@@ -81,12 +89,14 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       displayName,
       repPoints: initialRep,
       isSchoolEmail: schoolEmail,
+      emailVerified: false,
       createdAt: new Date(),
       onboardingComplete: false,
       country: null,
       background: null,
       interests: [],
       bio: "",
+      photoURL: null,
     }
 
     try {
@@ -95,6 +105,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
         displayName: guildUser.displayName,
         repPoints: guildUser.repPoints,
         isSchoolEmail: guildUser.isSchoolEmail,
+        emailVerified: false,
         createdAt: guildUser.createdAt,
         onboardingComplete: false,
         bio: "",
@@ -106,6 +117,8 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       await credential.user.delete()
       throw error
     }
+
+    await sendEmailVerification(credential.user)
 
     setState((prev) => ({ ...prev, guildUser }))
   }
@@ -124,8 +137,13 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     setState((prev) => ({ ...prev, guildUser }))
   }
 
+  const resendVerificationEmail = async () => {
+    if (!state.firebaseUser) return
+    await sendEmailVerification(state.firebaseUser)
+  }
+
   return (
-    <AuthContext.Provider value={{ ...state, register, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ ...state, register, login, logout, refreshUser, resendVerificationEmail }}>
       {children}
     </AuthContext.Provider>
   )

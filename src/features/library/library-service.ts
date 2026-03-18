@@ -14,8 +14,10 @@ import {
 } from "firebase/firestore"
 import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { validateCreateLibraryEntry, validateEditLibraryEntry } from "@/domain/library-entry"
-import type { LibraryEntry, Difficulty, ContentType } from "@/domain/library-entry"
+import type { LibraryEntry, Difficulty, ContentType, EntryVersion } from "@/domain/library-entry"
+import { parseLibraryEntryDoc, parseEntryVersionDoc } from "@/lib/firestore-schemas"
 
 type CreateEntryParams = {
   readonly authorId: string
@@ -45,6 +47,11 @@ export async function createLibraryEntry(params: CreateEntryParams): Promise<Cre
 
   if (!validation.valid) {
     return { success: false, reason: validation.reason }
+  }
+
+  const rateCheck = await checkRateLimit(params.authorId, "libraryEntries")
+  if (!rateCheck.allowed) {
+    return { success: false, reason: rateCheck.reason }
   }
 
   const docData: Record<string, unknown> = {
@@ -89,7 +96,10 @@ export async function editLibraryEntry(params: EditEntryParams): Promise<EditEnt
   }
 
   const data = entryDoc.data()
-  const entry = docToEntry(entryDoc.id, data)
+  const entry = parseLibraryEntryDoc(entryDoc.id, data as Record<string, unknown>)
+  if (!entry) {
+    return { success: false, reason: "Entry data is invalid" }
+  }
 
   const validation = validateEditLibraryEntry({
     userId: params.userId,
@@ -105,6 +115,16 @@ export async function editLibraryEntry(params: EditEntryParams): Promise<EditEnt
   if (!validation.valid) {
     return { success: false, reason: validation.reason }
   }
+
+  await addDoc(collection(db, "libraryEntryVersions"), {
+    entryId: params.entryId,
+    title: entry.title,
+    content: entry.content,
+    contentType: entry.contentType,
+    difficulty: entry.difficulty,
+    editedBy: params.userId,
+    createdAt: serverTimestamp(),
+  })
 
   const updateData: Record<string, unknown> = {
     title: params.title.trim(),
@@ -145,7 +165,9 @@ export async function getLibraryEntries(
   const q = query(ref, ...constraints)
 
   const snapshot = await getDocs(q)
-  const items = snapshot.docs.map((docSnap) => docToEntry(docSnap.id, docSnap.data()))
+  const items = snapshot.docs
+    .map((docSnap) => parseLibraryEntryDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
+    .filter((item): item is LibraryEntry => item !== null)
   const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null
 
   return { items, lastDoc, hasMore: snapshot.docs.length === PAGE_SIZE }
@@ -154,7 +176,7 @@ export async function getLibraryEntries(
 export async function getLibraryEntry(entryId: string): Promise<LibraryEntry | null> {
   const entryDoc = await getDoc(doc(db, "libraryEntries", entryId))
   if (!entryDoc.exists()) return null
-  return docToEntry(entryDoc.id, entryDoc.data())
+  return parseLibraryEntryDoc(entryDoc.id, entryDoc.data() as Record<string, unknown>)
 }
 
 export async function getLibraryEntriesByAuthor(authorId: string): Promise<readonly LibraryEntry[]> {
@@ -163,26 +185,22 @@ export async function getLibraryEntriesByAuthor(authorId: string): Promise<reado
     where("authorId", "==", authorId),
   )
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((docSnap) => docToEntry(docSnap.id, docSnap.data()))
+  return snapshot.docs
+    .map((docSnap) => parseLibraryEntryDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
+    .filter((item): item is LibraryEntry => item !== null)
 }
 
-function docToEntry(id: string, data: Record<string, unknown>): LibraryEntry {
-  const entry: LibraryEntry = {
-    id,
-    advancementId: data["advancementId"] as string,
-    authorId: data["authorId"] as string,
-    title: data["title"] as string,
-    content: (data["content"] as string) ?? "",
-    contentType: (data["contentType"] as ContentType) ?? "article",
-    difficulty: data["difficulty"] as Difficulty,
-    createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    updatedAt: (data["updatedAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-  }
+export type { EntryVersion } from "@/domain/library-entry"
 
-  const url = data["url"] as string | undefined
-  if (url) {
-    return { ...entry, url }
-  }
-
-  return entry
+export async function getEntryVersions(entryId: string): Promise<readonly EntryVersion[]> {
+  const q = query(
+    collection(db, "libraryEntryVersions"),
+    where("entryId", "==", entryId),
+    orderBy("createdAt", "desc"),
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs
+    .map((docSnap) => parseEntryVersionDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
+    .filter((item): item is EntryVersion => item !== null)
 }
+

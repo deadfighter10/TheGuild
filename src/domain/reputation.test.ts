@@ -31,8 +31,8 @@ describe("isSchoolEmail", () => {
 })
 
 describe("calculateInitialRep", () => {
-  it("returns 100 for school emails", () => {
-    expect(calculateInitialRep("student@mit.edu")).toBe(100)
+  it("returns 0 for school emails (bonus granted after verification)", () => {
+    expect(calculateInitialRep("student@mit.edu")).toBe(0)
   })
 
   it("returns 0 for non-school emails", () => {

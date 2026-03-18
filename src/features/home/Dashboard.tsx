@@ -5,6 +5,7 @@ import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { PILLAR_THEMES } from "@/domain/pillar-theme"
 import { getRepTier, isAdmin } from "@/domain/user"
+import { UserAvatar } from "@/shared/components/UserAvatar"
 import type { TreeNode } from "@/domain/node"
 import type { DiscussionThread } from "@/domain/discussion"
 import type { LibraryEntry } from "@/domain/library-entry"
@@ -14,24 +15,13 @@ import { getLibraryEntriesByAuthor } from "@/features/library/library-service"
 import { getNewsLinksBySubmitter } from "@/features/newsroom/news-service"
 import { getThreadsByAuthor } from "@/features/discussions/discussion-service"
 import { AdvancementIcon, TreeIcon, BookIcon, NewspaperIcon, ChevronRightIcon } from "@/shared/components/Icons"
+import { timeAgo } from "@/shared/utils/time"
 
 type ActivityItem =
   | { readonly type: "idea"; readonly data: TreeNode }
   | { readonly type: "thread"; readonly data: DiscussionThread }
   | { readonly type: "entry"; readonly data: LibraryEntry }
   | { readonly type: "link"; readonly data: NewsLink }
-
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return "just now"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return `${Math.floor(days / 30)}mo ago`
-}
 
 function useUserActivity(uid: string) {
   const [activity, setActivity] = useState<readonly ActivityItem[]>([])
@@ -250,19 +240,7 @@ export function Dashboard() {
                 : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
             }`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-              admin
-                ? "bg-red-500/10 text-red-400/80"
-                : "bg-gradient-to-br from-cyan-400/20 to-violet-400/20 text-white/60"
-            }`}>
-              {admin ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              ) : (
-                guildUser.displayName.charAt(0).toUpperCase()
-              )}
-            </div>
+            <UserAvatar name={guildUser.displayName} photoURL={guildUser.photoURL} size="sm" />
             <div className="text-left">
               <span className={`text-xs font-mono ${admin ? "text-red-400" : tierDisplay.color}`}>
                 {admin ? "Admin" : tierDisplay.label}

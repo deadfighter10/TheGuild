@@ -1,28 +1,19 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react"
+import { useState, useCallback, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { canContribute, canModerate } from "@/domain/reputation"
-import { createThread, getThreadsByAdvancement, createReply, getRepliesByThread, editThread, editReply, deleteThread, deleteReply } from "./discussion-service"
-import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
+import { createThread, subscribeToThreadsByAdvancement, createReply, subscribeToRepliesByThread, editThread, editReply, deleteThread, deleteReply } from "./discussion-service"
 import type { DiscussionThread, DiscussionReply } from "@/domain/discussion"
+import { useRealtimeQuery } from "@/shared/hooks/use-realtime-query"
 import { EmptyState } from "@/shared/components/EmptyState"
 import { useToast } from "@/shared/components/Toast"
 import { SkeletonList } from "@/shared/components/Skeleton"
+import { FlagButton } from "@/features/moderation/FlagButton"
+import { timeAgo } from "@/shared/utils/time"
+import { UserAvatar } from "@/shared/components/UserAvatar"
 
 type DiscussionForumProps = {
   readonly advancementId: string
-}
-
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return "just now"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return date.toLocaleDateString()
 }
 
 function NewThreadForm({ advancementId, onCreated, onCancel }: {
@@ -80,6 +71,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
           onChange={(e) => setTitle(e.target.value)}
           required
           placeholder="What do you want to discuss?"
+          aria-label="Discussion title"
           className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors placeholder:text-white/15"
         />
       </div>
@@ -91,6 +83,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
           required
           rows={4}
           placeholder="Share your thoughts, questions, or ideas..."
+          aria-label="Discussion body"
           className="w-full px-4 py-2.5 bg-void-800 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-400/40 transition-colors resize-y placeholder:text-white/15 leading-relaxed"
         />
       </div>
@@ -142,9 +135,7 @@ function ThreadCard({ thread, onOpenThread }: {
         )}
       </div>
       <div className="flex items-center gap-3 mt-3">
-        <div className="w-5 h-5 rounded-full bg-void-700 flex items-center justify-center text-[9px] font-mono text-white/50">
-          {thread.authorName.charAt(0).toUpperCase()}
-        </div>
+        <UserAvatar name={thread.authorName} size="xs" />
         <Link
           to={`/users/${thread.authorId}`}
           onClick={(e) => e.stopPropagation()}
@@ -165,8 +156,13 @@ function ThreadView({ thread, onBack }: {
 }) {
   const { guildUser } = useAuth()
   const { toast } = useToast()
-  const [replies, setReplies] = useState<readonly DiscussionReply[]>([])
-  const [loading, setLoading] = useState(true)
+  const subscribe = useCallback(
+    (onData: (items: readonly DiscussionReply[]) => void, onError: (error: Error) => void) =>
+      subscribeToRepliesByThread(thread.id, onData, onError),
+    [thread.id],
+  )
+  const { data: replies, loading } = useRealtimeQuery(subscribe)
+
   const [replyBody, setReplyBody] = useState("")
   const [replyError, setReplyError] = useState("")
   const [replying, setReplying] = useState(false)
@@ -179,22 +175,6 @@ function ThreadView({ thread, onBack }: {
   const [editReplySaving, setEditReplySaving] = useState(false)
   const [deletingThread, setDeletingThread] = useState(false)
   const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null)
-
-  const loadReplies = useCallback(async () => {
-    setLoading(true)
-    try {
-      const fetched = await getRepliesByThread(thread.id)
-      setReplies(fetched)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoading(false)
-    }
-  }, [thread.id])
-
-  useEffect(() => {
-    loadReplies()
-  }, [loadReplies])
 
   const handleReply = async (e: FormEvent) => {
     e.preventDefault()
@@ -214,7 +194,6 @@ function ThreadView({ thread, onBack }: {
       if (result.success) {
         setReplyBody("")
         toast("Reply posted", "success")
-        loadReplies()
       } else {
         setReplyError(result.reason)
       }
@@ -290,7 +269,6 @@ function ThreadView({ thread, onBack }: {
       if (result.success) {
         toast("Reply updated", "success")
         setEditingReplyId(null)
-        loadReplies()
       } else {
         toast(result.reason, "error")
       }
@@ -313,7 +291,6 @@ function ThreadView({ thread, onBack }: {
       })
       if (result.success) {
         toast("Reply deleted", "success")
-        loadReplies()
       } else {
         toast(result.reason, "error")
       }
@@ -369,31 +346,36 @@ function ThreadView({ thread, onBack }: {
           <>
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-base font-semibold text-white/90 mb-3">{thread.title}</h3>
-              {canEditThread && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => setEditingThread(true)}
-                    className="px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={handleDeleteThread}
-                    disabled={deletingThread}
-                    className="px-2 py-1 text-[10px] text-red-400/40 hover:text-red-400/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {deletingThread ? "..." : "Delete"}
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {canEditThread && (
+                  <>
+                    <button
+                      onClick={() => setEditingThread(true)}
+                      className="px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                      aria-label="Edit thread"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={handleDeleteThread}
+                      disabled={deletingThread}
+                      className="px-2 py-1 text-[10px] text-red-400/40 hover:text-red-400/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Delete thread"
+                    >
+                      {deletingThread ? "..." : "Delete"}
+                    </button>
+                  </>
+                )}
+                {guildUser && guildUser.uid !== thread.authorId && (
+                  <FlagButton targetCollection="discussionThreads" targetId={thread.id} targetTitle={thread.title} />
+                )}
+              </div>
             </div>
             <p className="text-sm text-white/40 leading-relaxed whitespace-pre-wrap">{thread.body}</p>
           </>
         )}
         <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/[0.04]">
-          <div className="w-6 h-6 rounded-full bg-void-700 flex items-center justify-center text-[10px] font-mono text-white/50">
-            {thread.authorName.charAt(0).toUpperCase()}
-          </div>
+          <UserAvatar name={thread.authorName} size="sm" />
           <Link to={`/users/${thread.authorId}`} className="text-xs text-white/40 hover:text-cyan-400/70 transition-colors">{thread.authorName}</Link>
           <span className="text-white/10">·</span>
           <span className="text-xs text-white/30">{timeAgo(thread.createdAt)}</span>
@@ -448,6 +430,7 @@ function ThreadView({ thread, onBack }: {
                           <button
                             onClick={() => { setEditingReplyId(reply.id); setEditReplyBody(reply.body) }}
                             className="px-1.5 py-0.5 text-[10px] text-white/20 hover:text-white/50 transition-colors"
+                            aria-label="Edit reply"
                           >
                             Edit
                           </button>
@@ -455,6 +438,7 @@ function ThreadView({ thread, onBack }: {
                             onClick={() => handleDeleteReply(reply.id)}
                             disabled={deletingReplyId === reply.id}
                             className="px-1.5 py-0.5 text-[10px] text-red-400/30 hover:text-red-400/70 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            aria-label="Delete reply"
                           >
                             {deletingReplyId === reply.id ? "..." : "Del"}
                           </button>
@@ -463,9 +447,7 @@ function ThreadView({ thread, onBack }: {
                     </div>
                   )}
                   <div className="flex items-center gap-3 mt-3">
-                    <div className="w-5 h-5 rounded-full bg-void-700 flex items-center justify-center text-[9px] font-mono text-white/50">
-                      {reply.authorName.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={reply.authorName} size="xs" />
                     <Link to={`/users/${reply.authorId}`} className="text-[11px] text-white/30 hover:text-cyan-400/70 transition-colors">{reply.authorName}</Link>
                     <span className="text-white/10">·</span>
                     <span className="text-[11px] text-white/30">{timeAgo(reply.createdAt)}</span>
@@ -511,47 +493,15 @@ function ThreadView({ thread, onBack }: {
 
 export function DiscussionForum({ advancementId }: DiscussionForumProps) {
   const { guildUser } = useAuth()
-  const [threads, setThreads] = useState<readonly DiscussionThread[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [showNewThread, setShowNewThread] = useState(false)
   const [openThreadId, setOpenThreadId] = useState<string | null>(null)
 
-  const loadThreads = useCallback(async () => {
-    setLoading(true)
-    setCursor(null)
-    try {
-      const page = await getThreadsByAdvancement(advancementId)
-      setThreads(page.items)
-      setCursor(page.lastDoc)
-      setHasMore(page.hasMore)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoading(false)
-    }
-  }, [advancementId])
-
-  const loadMoreThreads = async () => {
-    if (!cursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const page = await getThreadsByAdvancement(advancementId, cursor)
-      setThreads((prev) => [...prev, ...page.items])
-      setCursor(page.lastDoc)
-      setHasMore(page.hasMore)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoadingMore(false)
-    }
-  }
-
-  useEffect(() => {
-    loadThreads()
-  }, [loadThreads])
+  const subscribe = useCallback(
+    (onData: (items: readonly DiscussionThread[]) => void, onError: (error: Error) => void) =>
+      subscribeToThreadsByAdvancement(advancementId, onData, onError),
+    [advancementId],
+  )
+  const { data: threads, loading } = useRealtimeQuery(subscribe)
 
   const canPost = guildUser ? canContribute(guildUser.repPoints) : false
   const openThread = openThreadId ? threads.find((t) => t.id === openThreadId) : null
@@ -562,7 +512,6 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
         thread={openThread}
         onBack={() => {
           setOpenThreadId(null)
-          loadThreads()
         }}
       />
     )
@@ -600,7 +549,6 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
             advancementId={advancementId}
             onCreated={() => {
               setShowNewThread(false)
-              loadThreads()
             }}
             onCancel={() => setShowNewThread(false)}
           />
@@ -625,18 +573,6 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
               onOpenThread={setOpenThreadId}
             />
           ))}
-
-          {hasMore && (
-            <div className="text-center pt-4">
-              <button
-                onClick={loadMoreThreads}
-                disabled={loadingMore}
-                className="px-5 py-2 text-xs font-medium rounded-lg bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loadingMore ? "Loading..." : "Load more"}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

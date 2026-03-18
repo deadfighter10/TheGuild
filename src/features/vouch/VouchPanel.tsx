@@ -97,6 +97,7 @@ export function VouchPanel() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter their email"
+          aria-label="Email address of person to vouch for"
           required
           className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
         />

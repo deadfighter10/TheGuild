@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  addDoc,
   getDoc,
   getDocs,
   deleteDoc,
@@ -13,11 +12,17 @@ import {
   updateDoc,
   increment,
   serverTimestamp,
+  onSnapshot,
+  writeBatch,
 } from "firebase/firestore"
 import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
+import { parseDiscussionThreadDoc, parseDiscussionReplyDoc } from "@/lib/firestore-schemas"
 import { validateCreateThread, validateCreateReply, validateEditThread, validateEditReply, validateDeleteThread, validateDeleteReply } from "@/domain/discussion"
 import type { DiscussionThread, DiscussionReply } from "@/domain/discussion"
+import { createNotification } from "@/features/notifications/notification-service"
+import { formatNotificationMessage, notificationLink } from "@/domain/notification"
 
 type CreateThreadParams = {
   readonly authorId: string
@@ -43,7 +48,14 @@ export async function createThread(params: CreateThreadParams): Promise<CreateTh
     return { success: false, reason: validation.reason }
   }
 
-  const docRef = await addDoc(collection(db, "discussionThreads"), {
+  const rateCheck = await checkRateLimit(params.authorId, "discussionThreads")
+  if (!rateCheck.allowed) {
+    return { success: false, reason: rateCheck.reason }
+  }
+
+  const batch = writeBatch(db)
+  const newDocRef = doc(collection(db, "discussionThreads"))
+  batch.set(newDocRef, {
     advancementId: params.advancementId,
     authorId: params.authorId,
     authorName: params.authorName,
@@ -53,8 +65,10 @@ export async function createThread(params: CreateThreadParams): Promise<CreateTh
     lastActivityAt: serverTimestamp(),
     createdAt: serverTimestamp(),
   })
+  addRateLimitToBatch(batch, params.authorId, "discussionThreads")
+  await batch.commit()
 
-  return { success: true, threadId: docRef.id }
+  return { success: true, threadId: newDocRef.id }
 }
 
 const PAGE_SIZE = 20
@@ -78,20 +92,9 @@ export async function getThreadsByAdvancement(
   const q = query(collection(db, "discussionThreads"), ...constraints)
   const snapshot = await getDocs(q)
 
-  const items = snapshot.docs.map((docSnap) => {
-    const data = docSnap.data()
-    return {
-      id: docSnap.id,
-      advancementId: data["advancementId"] as string,
-      authorId: data["authorId"] as string,
-      authorName: data["authorName"] as string,
-      title: data["title"] as string,
-      body: data["body"] as string,
-      replyCount: (data["replyCount"] as number) ?? 0,
-      lastActivityAt: (data["lastActivityAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-      createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    }
-  })
+  const items = snapshot.docs
+    .map((docSnap) => parseDiscussionThreadDoc(docSnap.id, docSnap.data()))
+    .filter((item): item is DiscussionThread => item !== null)
 
   const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null
   return { items, lastDoc, hasMore: snapshot.docs.length === PAGE_SIZE }
@@ -119,18 +122,43 @@ export async function createReply(params: CreateReplyParams): Promise<CreateRepl
     return { success: false, reason: validation.reason }
   }
 
-  await addDoc(collection(db, "discussionReplies"), {
+  const rateCheck = await checkRateLimit(params.authorId, "discussionReplies")
+  if (!rateCheck.allowed) {
+    return { success: false, reason: rateCheck.reason }
+  }
+
+  const batch = writeBatch(db)
+  const replyRef = doc(collection(db, "discussionReplies"))
+  batch.set(replyRef, {
     threadId: params.threadId,
     authorId: params.authorId,
     authorName: params.authorName,
     body: params.body.trim(),
     createdAt: serverTimestamp(),
   })
-
-  await updateDoc(doc(db, "discussionThreads", params.threadId), {
+  batch.update(doc(db, "discussionThreads", params.threadId), {
     replyCount: increment(1),
     lastActivityAt: serverTimestamp(),
   })
+  addRateLimitToBatch(batch, params.authorId, "discussionReplies")
+  await batch.commit()
+
+  // Notify thread author (if not replying to own thread)
+  const threadDoc = await getDoc(doc(db, "discussionThreads", params.threadId))
+  const threadData = threadDoc.data()
+  if (threadData && threadData["authorId"] !== params.authorId) {
+    const threadAdvId = threadData["advancementId"] as string | undefined
+    createNotification({
+      userId: threadData["authorId"] as string,
+      type: "reply",
+      message: formatNotificationMessage({
+        type: "reply",
+        actorName: params.authorName,
+        targetTitle: threadData["title"] as string,
+      }),
+      link: notificationLink({ type: "reply", advancementId: threadAdvId }),
+    }).catch((err) => console.error("Failed to send reply notification:", err))
+  }
 
   return { success: true }
 }
@@ -143,20 +171,9 @@ export async function getThreadsByAuthor(authorId: string): Promise<readonly Dis
   )
   const snapshot = await getDocs(q)
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data()
-    return {
-      id: docSnap.id,
-      advancementId: data["advancementId"] as string,
-      authorId: data["authorId"] as string,
-      authorName: data["authorName"] as string,
-      title: data["title"] as string,
-      body: data["body"] as string,
-      replyCount: (data["replyCount"] as number) ?? 0,
-      lastActivityAt: (data["lastActivityAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-      createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    }
-  })
+  return snapshot.docs
+    .map((docSnap) => parseDiscussionThreadDoc(docSnap.id, docSnap.data()))
+    .filter((item): item is DiscussionThread => item !== null)
 }
 
 export async function getRepliesByThread(threadId: string): Promise<readonly DiscussionReply[]> {
@@ -167,46 +184,55 @@ export async function getRepliesByThread(threadId: string): Promise<readonly Dis
   )
   const snapshot = await getDocs(q)
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data()
-    return {
-      id: docSnap.id,
-      threadId: data["threadId"] as string,
-      authorId: data["authorId"] as string,
-      authorName: data["authorName"] as string,
-      body: data["body"] as string,
-      createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    }
-  })
+  return snapshot.docs
+    .map((docSnap) => parseDiscussionReplyDoc(docSnap.id, docSnap.data()))
+    .filter((item): item is DiscussionReply => item !== null)
 }
 
 type MutationResult =
   | { readonly success: true }
   | { readonly success: false; readonly reason: string }
 
-function docToThread(id: string, data: Record<string, unknown>): DiscussionThread {
-  return {
-    id,
-    advancementId: data["advancementId"] as string,
-    authorId: data["authorId"] as string,
-    authorName: data["authorName"] as string,
-    title: data["title"] as string,
-    body: data["body"] as string,
-    replyCount: (data["replyCount"] as number) ?? 0,
-    lastActivityAt: (data["lastActivityAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-  }
+export function subscribeToThreadsByAdvancement(
+  advancementId: string,
+  onData: (threads: readonly DiscussionThread[]) => void,
+  onError: (error: Error) => void,
+): () => void {
+  const q = query(
+    collection(db, "discussionThreads"),
+    where("advancementId", "==", advancementId),
+    orderBy("lastActivityAt", "desc"),
+  )
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const threads = snapshot.docs.map((docSnap) => parseDiscussionThreadDoc(docSnap.id, docSnap.data())).filter((item): item is DiscussionThread => item !== null)
+      onData(threads)
+    },
+    onError,
+  )
 }
 
-function docToReply(id: string, data: Record<string, unknown>): DiscussionReply {
-  return {
-    id,
-    threadId: data["threadId"] as string,
-    authorId: data["authorId"] as string,
-    authorName: data["authorName"] as string,
-    body: data["body"] as string,
-    createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-  }
+export function subscribeToRepliesByThread(
+  threadId: string,
+  onData: (replies: readonly DiscussionReply[]) => void,
+  onError: (error: Error) => void,
+): () => void {
+  const q = query(
+    collection(db, "discussionReplies"),
+    where("threadId", "==", threadId),
+    orderBy("createdAt", "asc"),
+  )
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const replies = snapshot.docs.map((docSnap) => parseDiscussionReplyDoc(docSnap.id, docSnap.data())).filter((item): item is DiscussionReply => item !== null)
+      onData(replies)
+    },
+    onError,
+  )
 }
 
 export async function editThread(params: {
@@ -219,7 +245,8 @@ export async function editThread(params: {
   const threadDoc = await getDoc(doc(db, "discussionThreads", params.threadId))
   if (!threadDoc.exists()) return { success: false, reason: "Thread not found" }
 
-  const thread = docToThread(threadDoc.id, threadDoc.data())
+  const thread = parseDiscussionThreadDoc(threadDoc.id, threadDoc.data())
+  if (!thread) return { success: false, reason: "Invalid thread data" }
   const validation = validateEditThread({
     userId: params.userId,
     userRep: params.userRep,
@@ -248,7 +275,8 @@ export async function editReply(params: {
   const replyDoc = await getDoc(doc(db, "discussionReplies", params.replyId))
   if (!replyDoc.exists()) return { success: false, reason: "Reply not found" }
 
-  const reply = docToReply(replyDoc.id, replyDoc.data())
+  const reply = parseDiscussionReplyDoc(replyDoc.id, replyDoc.data())
+  if (!reply) return { success: false, reason: "Invalid reply data" }
   const validation = validateEditReply({
     userId: params.userId,
     userRep: params.userRep,
@@ -274,7 +302,8 @@ export async function deleteThread(params: {
   const threadDoc = await getDoc(doc(db, "discussionThreads", params.threadId))
   if (!threadDoc.exists()) return { success: false, reason: "Thread not found" }
 
-  const thread = docToThread(threadDoc.id, threadDoc.data())
+  const thread = parseDiscussionThreadDoc(threadDoc.id, threadDoc.data())
+  if (!thread) return { success: false, reason: "Invalid thread data" }
   const validation = validateDeleteThread({
     userId: params.userId,
     userRep: params.userRep,
@@ -296,7 +325,8 @@ export async function deleteReply(params: {
   const replyDoc = await getDoc(doc(db, "discussionReplies", params.replyId))
   if (!replyDoc.exists()) return { success: false, reason: "Reply not found" }
 
-  const reply = docToReply(replyDoc.id, replyDoc.data())
+  const reply = parseDiscussionReplyDoc(replyDoc.id, replyDoc.data())
+  if (!reply) return { success: false, reason: "Invalid reply data" }
   const validation = validateDeleteReply({
     userId: params.userId,
     userRep: params.userRep,

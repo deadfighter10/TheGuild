@@ -78,7 +78,7 @@ export function AuthForm() {
           />
           {mode === "register" && (
             <p className="text-[10px] text-white/30 mt-1.5 font-mono">
-              .edu / .ac email = instant 100 Rep bonus
+              .edu / .ac email = +100 Rep after email verification
             </p>
           )}
         </div>

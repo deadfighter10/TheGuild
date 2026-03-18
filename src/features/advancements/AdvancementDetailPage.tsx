@@ -13,6 +13,7 @@ import { getNodesByAdvancement } from "@/features/tree/node-service"
 import { getLibraryEntries } from "@/features/library/library-service"
 import { getNewsLinks } from "@/features/newsroom/news-service"
 import { getThreadsByAdvancement } from "@/features/discussions/discussion-service"
+import { timeAgo } from "@/shared/utils/time"
 
 type Tab = "overview" | "tree" | "discussions" | "library" | "platforms"
 
@@ -63,7 +64,7 @@ function useSubHubStats(advancementId: string) {
         libraryEntries: entries.items.length,
         newsLinks: links.items.length,
       })
-    }).catch(() => {})
+    }).catch((err) => console.error("Failed to load advancement stats:", err))
   }, [advancementId])
 
   return stats
@@ -227,7 +228,7 @@ export function AdvancementDetailPage() {
   const activePillarTheme = activePillar ? PILLAR_THEMES[activePillar] : null
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-4 mb-6">
         <Link
           to="/advancements"
@@ -254,8 +255,8 @@ export function AdvancementDetailPage() {
         </div>
       </div>
 
-      <div className="border-b border-white/[0.06] mb-8">
-        <div className="flex items-center gap-0.5 -mb-px overflow-x-auto scrollbar-none">
+      <div className="border-b border-white/[0.06] mb-8 -mx-6 px-6 sm:mx-0 sm:px-0">
+        <div className="flex items-center gap-0.5 -mb-px overflow-x-auto scrollbar-none pb-px">
           {TAB_CONFIG.map((tab) => {
             const pillarTheme = tab.pillar ? PILLAR_THEMES[tab.pillar] : null
             const isActive = activeTab === tab.key
@@ -283,7 +284,7 @@ export function AdvancementDetailPage() {
 
       <OnrampBanner context="advancement" advancementName={advancement.name} />
 
-      <div className={activePillarTheme ? `border-l-2 ${activePillarTheme.accentBorder} pl-6` : ""}>
+      <div className={activePillarTheme ? `border-l-2 ${activePillarTheme.accentBorder} pl-3 sm:pl-6` : ""}>
         {activeTab === "overview" && (
           <OverviewTab
             advancement={advancement}
@@ -333,18 +334,6 @@ type ActivityItem = {
   readonly tab?: Tab
 }
 
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return "just now"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return date.toLocaleDateString()
-}
-
 const ACTIVITY_ICONS: Record<ActivityItem["type"], { label: string; color: string }> = {
   idea: { label: "Idea", color: "text-emerald-400/50" },
   thread: { label: "Thread", color: "text-blue-400/50" },
@@ -374,7 +363,7 @@ function RecentActivity({ advancementId, onNavigate }: {
       ]
       all.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       setItems(all.slice(0, 10))
-    }).catch(() => {}).finally(() => setLoading(false))
+    }).catch((err) => console.error("Failed to load activity feed:", err)).finally(() => setLoading(false))
   }, [advancementId])
 
   if (loading) {
@@ -439,7 +428,7 @@ function OverviewTab({ advancement, stats, platforms, onNavigate }: {
         {advancement.description}
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           { label: "Ideas", value: stats.ideas, color: PILLAR_THEMES.tree.colorClass, tab: "tree" as Tab },
           { label: "Discussions", value: stats.threads, color: PILLAR_THEMES.discussions.colorClass, tab: "discussions" as Tab },
@@ -521,7 +510,7 @@ function LibraryTab({ advancementId }: {
   useEffect(() => {
     getLibraryEntries(advancementId)
       .then((page) => setEntries(page.items))
-      .catch(() => {})
+      .catch((err) => console.error("Failed to load library entries:", err))
       .finally(() => setLoading(false))
   }, [advancementId])
 
@@ -706,6 +695,7 @@ function PlatformsTab({ platforms, advancementColor }: {
               href={platform.url}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`${platform.name} — ${config.label}`}
               className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:scale-[1.01] hover:-translate-y-0.5 ${config.border} ${config.bg}`}
               style={{
                 boxShadow: `0 0 0 0 ${config.glow}`,

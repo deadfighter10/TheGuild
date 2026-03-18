@@ -5,6 +5,17 @@ export type Difficulty = "introductory" | "intermediate" | "advanced"
 
 export type ContentType = "article" | "youtube" | "link" | "document"
 
+export type EntryVersion = {
+  readonly id: string
+  readonly entryId: string
+  readonly title: string
+  readonly content: string
+  readonly contentType: ContentType
+  readonly difficulty: Difficulty
+  readonly editedBy: string
+  readonly createdAt: Date
+}
+
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   article: "Written Article",
   youtube: "YouTube Video",

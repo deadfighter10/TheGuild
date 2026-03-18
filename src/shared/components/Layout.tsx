@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useFocusTrap, useEscapeKey } from "@/shared/hooks/use-focus-trap"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { isAdmin } from "@/domain/user"
@@ -6,6 +7,9 @@ import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { AdvancementIcon } from "@/shared/components/Icons"
 import type { ReactNode } from "react"
+import { NotificationBell } from "@/features/notifications/NotificationBell"
+import { UserAvatar } from "@/shared/components/UserAvatar"
+import Fuse from "fuse.js"
 
 const NAV_LINKS = [
   { path: "/", label: "Home" },
@@ -14,6 +18,30 @@ const NAV_LINKS = [
   { path: "/newsroom", label: "Newsroom" },
   { path: "/pool", label: "The Pool" },
 ] as const
+
+const ADVANCEMENT_SEARCH_ITEMS = ADVANCEMENTS.map((a) => {
+  const theme = ADVANCEMENT_THEMES[a.id]
+  return { ...a, shortName: theme?.shortName ?? "" }
+})
+
+const advancementFuse = new Fuse(ADVANCEMENT_SEARCH_ITEMS, {
+  keys: ["name", "id", "shortName"],
+  threshold: 0.4,
+})
+
+const NAV_ITEMS = [
+  { label: "Home", path: "/" },
+  { label: "All Advancements", path: "/advancements" },
+  { label: "Grand Library", path: "/library" },
+  { label: "Newsroom", path: "/newsroom" },
+  { label: "The Pool", path: "/pool" },
+  { label: "Profile", path: "/profile" },
+]
+
+const navFuse = new Fuse(NAV_ITEMS, {
+  keys: ["label"],
+  threshold: 0.3,
+})
 
 function useCurrentAdvancement() {
   const location = useLocation()
@@ -57,6 +85,8 @@ function SearchIcon({ size = 18 }: { readonly size?: number }) {
 function CommandPalette({ open, onClose }: { readonly open: boolean; readonly onClose: () => void }) {
   const [query, setQuery] = useState("")
   const navigate = useNavigate()
+  const focusTrapRef = useFocusTrap(open)
+  useEscapeKey(open, onClose)
 
   useEffect(() => {
     if (!open) {
@@ -66,27 +96,19 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
 
   if (!open) return null
 
-  const lowerQuery = query.toLowerCase()
+  const advancementResults = useMemo(() =>
+    query.length > 0
+      ? advancementFuse.search(query).map((r) => r.item).slice(0, 4)
+      : [],
+    [query],
+  )
 
-  const advancementResults = query.length > 0
-    ? ADVANCEMENTS.filter((a) => {
-        const theme = ADVANCEMENT_THEMES[a.id]
-        return a.name.toLowerCase().includes(lowerQuery) ||
-          a.id.includes(lowerQuery) ||
-          theme?.shortName.toLowerCase().includes(lowerQuery)
-      }).slice(0, 4)
-    : []
-
-  const navResults = query.length > 0
-    ? [
-        { label: "Home", path: "/" },
-        { label: "All Advancements", path: "/advancements" },
-        { label: "Grand Library", path: "/library" },
-        { label: "Newsroom", path: "/newsroom" },
-        { label: "The Pool", path: "/pool" },
-        { label: "Profile", path: "/profile" },
-      ].filter((n) => n.label.toLowerCase().includes(lowerQuery)).slice(0, 3)
-    : []
+  const navResults = useMemo(() =>
+    query.length > 0
+      ? navFuse.search(query).map((r) => r.item).slice(0, 3)
+      : [],
+    [query],
+  )
 
   const handleSelect = (path: string) => {
     navigate(path)
@@ -95,8 +117,8 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-void-950/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[61] w-full max-w-lg">
+      <div className="fixed inset-0 z-[60] bg-void-950/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="fixed top-[15%] sm:top-[20%] left-1/2 -translate-x-1/2 z-[61] w-full max-w-lg px-4 sm:px-0" role="dialog" aria-modal="true" aria-label="Search and navigation" ref={focusTrapRef}>
         <div className="rounded-2xl border border-white/[0.08] bg-void-900 shadow-2xl shadow-black/50 overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
             <SearchIcon size={16} />
@@ -106,6 +128,7 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search advancements, pages..."
+              aria-label="Search advancements and pages"
               className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none"
             />
             <kbd className="hidden sm:inline px-2 py-0.5 rounded text-[10px] font-mono text-white/30 border border-white/[0.08] bg-white/[0.03]">
@@ -170,6 +193,39 @@ function CommandPalette({ open, onClose }: { readonly open: boolean; readonly on
   )
 }
 
+function EmailVerificationBanner() {
+  const { firebaseUser, guildUser, resendVerificationEmail } = useAuth()
+  const [sent, setSent] = useState(false)
+
+  if (!firebaseUser || !guildUser) return null
+  if (guildUser.emailVerified) return null
+  if (firebaseUser.emailVerified) return null
+
+  const handleResend = async () => {
+    await resendVerificationEmail()
+    setSent(true)
+  }
+
+  return (
+    <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 text-center text-sm">
+      <span className="text-amber-300/80">
+        Verify your email to unlock full access
+        {guildUser.isSchoolEmail && " and earn +100 Rep"}.
+      </span>
+      {sent ? (
+        <span className="ml-2 text-amber-300/60">Verification email sent!</span>
+      ) : (
+        <button
+          onClick={handleResend}
+          className="ml-2 text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors"
+        >
+          Resend email
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function Layout({ children }: { readonly children: ReactNode }) {
   const { firebaseUser, guildUser, logout } = useAuth()
   const location = useLocation()
@@ -189,19 +245,19 @@ export function Layout({ children }: { readonly children: ReactNode }) {
     return undefined
   }, [mobileMenuOpen])
 
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
+  useEscapeKey(mobileMenuOpen, closeMobileMenu)
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault()
         setPaletteOpen((prev) => !prev)
       }
-      if (e.key === "Escape" && paletteOpen) {
-        setPaletteOpen(false)
-      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [paletteOpen])
+  }, [])
 
   return (
     <div className="min-h-screen bg-void-950 text-white noise-overlay">
@@ -287,6 +343,9 @@ export function Layout({ children }: { readonly children: ReactNode }) {
 
             {firebaseUser && guildUser ? (
               <>
+                <div className="hidden md:block">
+                  <NotificationBell />
+                </div>
                 {isAdmin(guildUser.repPoints) && (
                   <Link
                     to="/admin"
@@ -302,9 +361,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
                   to="/profile"
                   className="flex items-center gap-2 group"
                 >
-                  <div className="w-7 h-7 rounded-full bg-void-700 border border-white/10 flex items-center justify-center text-xs font-mono text-white/70 group-hover:border-cyan-400/40 transition-colors">
-                    {guildUser.displayName.charAt(0).toUpperCase()}
-                  </div>
+                  <UserAvatar name={guildUser.displayName} photoURL={guildUser.photoURL} size="xs" />
                   <span className="hidden sm:block text-sm text-white/60 group-hover:text-white/90 transition-colors">
                     {isAdmin(guildUser.repPoints) ? "Admin" : `${guildUser.repPoints} Rep`}
                   </span>
@@ -343,8 +400,9 @@ export function Layout({ children }: { readonly children: ReactNode }) {
           <div
             className="absolute inset-0 bg-void-950/90 backdrop-blur-md"
             onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
           />
-          <div className="relative z-10 mt-14 border-t border-white/5 bg-void-950/95 backdrop-blur-xl" role="dialog" aria-label="Mobile navigation menu">
+          <div className="relative z-10 mt-14 border-t border-white/5 bg-void-950/95 backdrop-blur-xl" role="dialog" aria-modal="true" aria-label="Mobile navigation menu">
             <div className="px-6 py-6 space-y-1">
               {NAV_LINKS.map((link) => {
                 const isActive = link.path === "/"
@@ -436,7 +494,11 @@ export function Layout({ children }: { readonly children: ReactNode }) {
         </div>
       )}
 
-      <main id="main-content" className="relative z-10 pt-14" role="main">
+      <div className="pt-14">
+        <EmailVerificationBanner />
+      </div>
+
+      <main id="main-content" className="relative z-10" role="main">
         {children}
       </main>
 

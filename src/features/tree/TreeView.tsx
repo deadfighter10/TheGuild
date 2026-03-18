@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
+import Fuse from "fuse.js"
+import { Link } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import { buildTree } from "@/domain/node"
-import type { TreeNode, TreeNodeWithChildren, NodeStatus } from "@/domain/node"
+import type { TreeNodeWithChildren, NodeStatus } from "@/domain/node"
 import { canContribute, canModerate } from "@/domain/reputation"
-import { getNodesByAdvancement, supportNode, setNodeStatus, hasUserSupported, editNode } from "./node-service"
+import { subscribeToNodesByAdvancement, supportNode, setNodeStatus, hasUserSupported, editNode } from "./node-service"
+import { useRealtimeQuery } from "@/shared/hooks/use-realtime-query"
 import { CreateNodeForm } from "./CreateNodeForm"
 import { ChevronRightIcon } from "@/shared/components/Icons"
 import { EmptyState } from "@/shared/components/EmptyState"
 import { useToast } from "@/shared/components/Toast"
+import { FlagButton } from "@/features/moderation/FlagButton"
+import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
 
 type SortMode = "newest" | "most-supported" | "status"
 
@@ -34,16 +39,21 @@ function filterTree(
   query: string,
 ): readonly TreeNodeWithChildren[] {
   if (!query) return nodes
-  const lowerQuery = query.toLowerCase()
+
+  const fuse = new Fuse([{ title: "", description: "" }], {
+    keys: ["title", "description"],
+    threshold: 0.4,
+    includeScore: true,
+  })
 
   function matches(node: TreeNodeWithChildren): TreeNodeWithChildren | null {
-    const titleMatch = node.node.title.toLowerCase().includes(lowerQuery)
-    const descMatch = node.node.description.toLowerCase().includes(lowerQuery)
+    fuse.setCollection([{ title: node.node.title, description: node.node.description }])
+    const fuzzyMatch = fuse.search(query).length > 0
     const filteredChildren = node.children
       .map(matches)
       .filter((c): c is TreeNodeWithChildren => c !== null)
 
-    if (titleMatch || descMatch || filteredChildren.length > 0) {
+    if (fuzzyMatch || filteredChildren.length > 0) {
       return { ...node, children: filteredChildren }
     }
     return null
@@ -99,7 +109,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
 
   useEffect(() => {
     if (guildUser) {
-      hasUserSupported(guildUser.uid, node.id).then(setSupported).catch(() => {})
+      hasUserSupported(guildUser.uid, node.id).then(setSupported).catch((err) => console.error("Failed to check support status:", err))
     }
   }, [guildUser, node.id])
 
@@ -193,6 +203,8 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
             <button
               onClick={() => setExpanded(!expanded)}
               className="mt-1 shrink-0"
+              aria-expanded={expanded}
+              aria-label={expanded ? "Collapse idea details" : "Expand idea details"}
             >
               <ChevronRightIcon
                 size={14}
@@ -202,7 +214,12 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <h4 className="text-sm font-semibold text-white">{node.title}</h4>
+                <Link
+                  to={`/advancements/${node.advancementId}/tree/${node.id}`}
+                  className="text-sm font-semibold text-white hover:text-cyan-400 transition-colors"
+                >
+                  {node.title}
+                </Link>
                 <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${statusStyle.badge}`}>
                   {statusStyle.label}
                 </span>
@@ -244,6 +261,19 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
                   >
                     Edit
                   </button>
+                )}
+
+                {guildUser && !isOwnNode && (
+                  <FlagButton targetCollection="nodes" targetId={node.id} targetTitle={node.title} />
+                )}
+
+                {guildUser && (
+                  <BookmarkButton
+                    targetType="node"
+                    targetId={node.id}
+                    targetTitle={node.title}
+                    advancementId={node.advancementId}
+                  />
                 )}
 
                 {canUserModerate && (
@@ -339,13 +369,13 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
       </div>
 
       {expanded && children.length > 0 && (
-        <div className="ml-5 mt-2 space-y-2 relative">
+        <div className="ml-2 sm:ml-5 mt-2 space-y-2 relative">
           <div
             className="absolute top-0 left-0 bottom-4 w-px"
             style={{ backgroundColor: `${color}10` }}
           />
           {children.map((child) => (
-            <div key={child.node.id} className="relative pl-5">
+            <div key={child.node.id} className="relative pl-2 sm:pl-5">
               <NodeCard
                 treeNode={child}
                 depth={depth + 1}
@@ -367,29 +397,18 @@ type TreeViewProps = {
 
 export function TreeView({ advancementId, color }: TreeViewProps) {
   const { guildUser } = useAuth()
-  const [nodes, setNodes] = useState<readonly TreeNode[]>([])
-  const [loading, setLoading] = useState(true)
   const [showCreateRoot, setShowCreateRoot] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortMode, setSortMode] = useState<SortMode>("newest")
 
-  const loadNodes = useCallback(async () => {
-    setLoading(true)
-    try {
-      const fetched = await getNodesByAdvancement(advancementId)
-      setNodes(fetched)
-    } catch {
-      // UI shows stale state as fallback
-    } finally {
-      setLoading(false)
-    }
-  }, [advancementId])
+  const subscribe = useCallback(
+    (onData: (items: readonly import("@/domain/node").TreeNode[]) => void, onError: (error: Error) => void) =>
+      subscribeToNodesByAdvancement(advancementId, onData, onError),
+    [advancementId],
+  )
+  const { data: nodes, loading } = useRealtimeQuery(subscribe)
 
-  useEffect(() => {
-    loadNodes()
-  }, [loadNodes])
-
-  const tree = buildTree(nodes)
+  const tree = useMemo(() => buildTree(nodes), [nodes])
   const filteredTree = useMemo(
     () => sortNodes(filterTree(tree, searchQuery), sortMode),
     [tree, searchQuery, sortMode],
@@ -467,7 +486,6 @@ export function TreeView({ advancementId, color }: TreeViewProps) {
             parentNodeId={null}
             onCreated={() => {
               setShowCreateRoot(false)
-              loadNodes()
             }}
             onCancel={() => setShowCreateRoot(false)}
           />
@@ -496,7 +514,7 @@ export function TreeView({ advancementId, color }: TreeViewProps) {
               treeNode={treeNode}
               depth={0}
               color={color}
-              onRefresh={loadNodes}
+              onRefresh={() => {}}
             />
           ))}
         </div>

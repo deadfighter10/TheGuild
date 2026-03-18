@@ -8,8 +8,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints;
     }
 
+    // S3: Admin check uses custom claims (primary) with repPoints -1 fallback (migration)
     function isAdminUser() {
-      return getUserRep() == -1;
+      return request.auth.token.admin == true || getUserRep() == -1;
     }
 
     function isContributor() {
@@ -22,7 +23,7 @@ service cloud.firestore {
 
     // Users: anyone authenticated can read
     // Users can only create and update their own profile
-    // Rep field changes are restricted (only admin via direct Firestore, or vouch flow)
+    // repPoints and emailVerified can only be changed by Cloud Functions (Admin SDK)
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
@@ -32,8 +33,13 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.displayName.size() <= 50
-        && (!('bio' in request.resource.data) || request.resource.data.bio.size() <= 500);
-      allow delete: if request.auth != null && isAdminUser();
+        && (!('bio' in request.resource.data) || request.resource.data.bio.size() <= 500)
+        // Prevent users from changing their own rep, emailVerified, or isSchoolEmail
+        && request.resource.data.repPoints == resource.data.repPoints
+        && request.resource.data.emailVerified == resource.data.emailVerified
+        && request.resource.data.isSchoolEmail == resource.data.isSchoolEmail;
+      // Delete only via Cloud Functions (Admin SDK bypasses rules)
+      allow delete: if false;
     }
 
     // Advancements are readable by anyone authenticated, immutable
@@ -54,6 +60,7 @@ service cloud.firestore {
     // Nodes (The Tree): authenticated users can read
     // Contributors can create their own nodes
     // Author or moderator can update
+    // Delete only via Cloud Functions
     match /nodes/{nodeId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
@@ -63,7 +70,7 @@ service cloud.firestore {
         && request.resource.data.description.size() <= 5000;
       allow update: if request.auth != null
         && (request.auth.uid == resource.data.authorId || isModerator());
-      allow delete: if request.auth != null && isAdminUser();
+      allow delete: if false;
     }
 
     // Node supports: authenticated users can read, contributors can create with own userId
@@ -77,6 +84,7 @@ service cloud.firestore {
     // Library entries: anyone authenticated can read
     // 1500+ Rep or admin can create
     // Author or moderator can update
+    // Delete only via Cloud Functions
     match /libraryEntries/{entryId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
@@ -86,12 +94,20 @@ service cloud.firestore {
         && request.resource.data.content.size() <= 50000;
       allow update: if request.auth != null
         && (request.auth.uid == resource.data.authorId || isModerator());
-      allow delete: if request.auth != null && isAdminUser();
+      allow delete: if false;
+    }
+
+    // Library entry versions: readable by authenticated, created alongside edits
+    match /libraryEntryVersions/{versionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
     }
 
     // News links: authenticated can read
     // Contributors can create with own submitterId
     // Only submitter or moderator can update (score updates via votes)
+    // Delete only via Cloud Functions
     match /newsLinks/{linkId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
@@ -100,7 +116,7 @@ service cloud.firestore {
         && request.resource.data.title.size() <= 200
         && request.resource.data.url.size() <= 2000;
       allow update: if request.auth != null;
-      allow delete: if request.auth != null && isAdminUser();
+      allow delete: if false;
     }
 
     // News votes: authenticated can read, contributors can create/update with own userId
@@ -143,10 +159,62 @@ service cloud.firestore {
         && (request.auth.uid == resource.data.authorId || isModerator());
     }
 
-    // Audit log: append-only for admin actions
+    // Audit log: append-only, admin-only (via custom claims or legacy rep)
     match /auditLog/{logId} {
       allow read: if request.auth != null && isAdminUser();
       allow create: if request.auth != null && isAdminUser();
+    }
+
+    // Notifications: users can only read/update their own, any authenticated user can create
+    match /notifications/{notifId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.message.size() <= 500;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Content flags (P0.3: Content Moderation)
+    // Any authenticated user can flag content, one flag per user per target
+    match /flags/{flagId} {
+      allow read: if request.auth != null && (isModerator() || isAdminUser());
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reason.size() <= 1000;
+      allow update: if request.auth != null && (isModerator() || isAdminUser());
+      allow delete: if false;
+    }
+
+    // Bookmarks: users can CRUD their own bookmarks only
+    match /bookmarks/{bookmarkId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.targetTitle.size() <= 200;
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // S7 Phase 2: Rate limit tracking docs
+    // Each doc: rateLimits/{userId}_{collection} with lastWriteAt timestamp
+    // Client must update this doc in a batch write alongside content creation
+    // Rules enforce minimum 10-second interval between creates per collection
+    match /rateLimits/{limitId} {
+      allow read: if request.auth != null
+        && limitId.matches(request.auth.uid + '_.*');
+      allow create: if request.auth != null
+        && limitId.matches(request.auth.uid + '_.*');
+      allow update: if request.auth != null
+        && limitId.matches(request.auth.uid + '_.*')
+        && request.resource.data.lastWriteAt == request.time
+        && (
+          !exists(resource)
+          || resource.data.lastWriteAt + duration.value(10, 's') < request.time
+        );
+      allow delete: if false;
     }
   }
 }

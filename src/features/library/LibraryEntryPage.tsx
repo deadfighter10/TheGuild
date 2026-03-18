@@ -4,13 +4,16 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { canModerate } from "@/domain/reputation"
-import { getLibraryEntry } from "./library-service"
+import { getLibraryEntry, getEntryVersions } from "./library-service"
+import type { EntryVersion } from "./library-service"
 import { LibraryEntryForm } from "./LibraryEntryForm"
 import { extractYouTubeId, CONTENT_TYPE_LABELS } from "@/domain/library-entry"
 import type { LibraryEntry, Difficulty } from "@/domain/library-entry"
 import { AdvancementIcon } from "@/shared/components/Icons"
 import { Markdown } from "@/shared/components/Markdown"
 import { SkeletonText } from "@/shared/components/Skeleton"
+import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
+import { timeAgo } from "@/shared/utils/time"
 import { sanitizeUrl } from "@/shared/components/markdown-renderer"
 
 const IFRAME_ALLOWED_DOMAINS = [
@@ -149,6 +152,62 @@ function ContentTypeBadge({ contentType }: { readonly contentType: string }) {
   )
 }
 
+function VersionHistory({ entryId }: { readonly entryId: string }) {
+  const [versions, setVersions] = useState<readonly EntryVersion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    getEntryVersions(entryId)
+      .then(setVersions)
+      .catch((err) => console.error("Failed to load versions:", err))
+      .finally(() => setLoading(false))
+  }, [entryId])
+
+  if (loading || versions.length === 0) return null
+
+  return (
+    <div className="mt-8 pt-8 border-t border-white/5">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors"
+      >
+        <span>Version History ({versions.length})</span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-2">
+          {versions.map((version) => (
+            <div
+              key={version.id}
+              className="p-3 rounded-lg border border-white/5 bg-void-900"
+            >
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-white/50 font-medium">{version.title}</span>
+                <span className="text-white/20 font-mono">{timeAgo(version.createdAt)}</span>
+              </div>
+              <p className="text-[10px] text-white/25 mt-1 line-clamp-2 font-mono">
+                {version.content.slice(0, 200)}{version.content.length > 200 ? "..." : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function LibraryEntryPage() {
   const { id } = useParams<{ id: string }>()
   const { guildUser } = useAuth()
@@ -207,7 +266,7 @@ export function LibraryEntryPage() {
           onSaved={() => {
             setEditing(false)
             if (id) {
-              getLibraryEntry(id).then(setEntry).catch(() => {})
+              getLibraryEntry(id).then(setEntry).catch((err) => console.error("Failed to reload entry:", err))
             }
           }}
           onCancel={() => setEditing(false)}
@@ -244,14 +303,22 @@ export function LibraryEntryPage() {
             <h1 className="font-display text-3xl text-white">{entry.title}</h1>
           </div>
 
-          {canEdit && (
-            <button
-              onClick={() => setEditing(true)}
-              className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-white/10 text-white/60 hover:text-white hover:bg-white/15 border border-white/10 transition-colors"
-            >
-              Edit
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <BookmarkButton
+              targetType="libraryEntry"
+              targetId={entry.id}
+              targetTitle={entry.title}
+              advancementId={entry.advancementId}
+            />
+            {canEdit && (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-white/10 text-white/60 hover:text-white hover:bg-white/15 border border-white/10 transition-colors"
+              >
+                Edit
+              </button>
+            )}
+          </div>
         </div>
 
         {entry.contentType === "youtube" && entry.url && (
@@ -277,6 +344,8 @@ export function LibraryEntryPage() {
             <Markdown content={entry.content} />
           </div>
         )}
+
+        <VersionHistory entryId={entry.id} />
       </article>
     </div>
   )

@@ -18,8 +18,8 @@ export function isSchoolEmail(email: string): boolean {
   return SCHOOL_EMAIL_PATTERNS.some((pattern) => pattern.test(domain))
 }
 
-export function calculateInitialRep(email: string): number {
-  return isSchoolEmail(email) ? REP_THRESHOLDS.schoolEmailBonus : 0
+export function calculateInitialRep(_email: string): number {
+  return 0
 }
 
 export function canContribute(rep: number): boolean {

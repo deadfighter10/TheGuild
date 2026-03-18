@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  addDoc,
   getDoc,
   getDocs,
   query,
@@ -10,11 +9,17 @@ import {
   increment,
   setDoc,
   serverTimestamp,
+  onSnapshot,
+  writeBatch,
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
+import { parseTreeNodeDoc } from "@/lib/firestore-schemas"
 import { validateCreateNode, validateSupportNode, validateSetNodeStatus, validateEditNode } from "@/domain/node"
 import type { TreeNode, NodeStatus } from "@/domain/node"
 import { REP_THRESHOLDS } from "@/domain/reputation"
+import { createNotification } from "@/features/notifications/notification-service"
+import { formatNotificationMessage, notificationLink } from "@/domain/notification"
 
 type CreateNodeParams = {
   readonly authorId: string
@@ -42,7 +47,14 @@ export async function createNode(params: CreateNodeParams): Promise<CreateNodeRe
     return { success: false, reason: validation.reason }
   }
 
-  const docRef = await addDoc(collection(db, "nodes"), {
+  const rateCheck = await checkRateLimit(params.authorId, "nodes")
+  if (!rateCheck.allowed) {
+    return { success: false, reason: rateCheck.reason }
+  }
+
+  const batch = writeBatch(db)
+  const newDocRef = doc(collection(db, "nodes"))
+  batch.set(newDocRef, {
     advancementId: params.advancementId,
     parentNodeId: params.parentNodeId,
     authorId: params.authorId,
@@ -52,8 +64,14 @@ export async function createNode(params: CreateNodeParams): Promise<CreateNodeRe
     supportCount: 0,
     createdAt: serverTimestamp(),
   })
+  addRateLimitToBatch(batch, params.authorId, "nodes")
+  await batch.commit()
 
-  return { success: true, nodeId: docRef.id }
+  return { success: true, nodeId: newDocRef.id }
+}
+
+function filterNulls<T>(items: readonly (T | null)[]): readonly T[] {
+  return items.filter((item): item is T => item !== null)
 }
 
 export async function getNodesByAdvancement(advancementId: string): Promise<readonly TreeNode[]> {
@@ -63,20 +81,27 @@ export async function getNodesByAdvancement(advancementId: string): Promise<read
   )
   const snapshot = await getDocs(q)
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data()
-    return {
-      id: docSnap.id,
-      advancementId: data["advancementId"] as string,
-      parentNodeId: (data["parentNodeId"] as string | null) ?? null,
-      authorId: data["authorId"] as string,
-      title: data["title"] as string,
-      description: data["description"] as string,
-      status: data["status"] as NodeStatus,
-      supportCount: data["supportCount"] as number,
-      createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    }
-  })
+  return filterNulls(snapshot.docs.map((docSnap) => parseTreeNodeDoc(docSnap.id, docSnap.data())))
+}
+
+export function subscribeToNodesByAdvancement(
+  advancementId: string,
+  onData: (nodes: readonly TreeNode[]) => void,
+  onError: (error: Error) => void,
+): () => void {
+  const q = query(
+    collection(db, "nodes"),
+    where("advancementId", "==", advancementId),
+  )
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const nodes = filterNulls(snapshot.docs.map((docSnap) => parseTreeNodeDoc(docSnap.id, docSnap.data())))
+      onData(nodes)
+    },
+    onError,
+  )
 }
 
 type SupportNodeResult =
@@ -93,17 +118,9 @@ export async function supportNode(
     return { success: false, reason: "Node not found" }
   }
 
-  const nodeData = nodeDoc.data()
-  const node: TreeNode = {
-    id: nodeDoc.id,
-    advancementId: nodeData["advancementId"] as string,
-    parentNodeId: (nodeData["parentNodeId"] as string | null) ?? null,
-    authorId: nodeData["authorId"] as string,
-    title: nodeData["title"] as string,
-    description: nodeData["description"] as string,
-    status: nodeData["status"] as NodeStatus,
-    supportCount: nodeData["supportCount"] as number,
-    createdAt: (nodeData["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
+  const node = parseTreeNodeDoc(nodeDoc.id, nodeDoc.data())
+  if (!node) {
+    return { success: false, reason: "Invalid node data" }
   }
 
   const supportId = `${userId}_${nodeId}`
@@ -134,6 +151,22 @@ export async function supportNode(
   await updateDoc(doc(db, "users", node.authorId), {
     repPoints: increment(REP_THRESHOLDS.supportBonus),
   })
+
+  // Notify node author
+  if (node.authorId !== userId) {
+    const supporterDoc = await getDoc(doc(db, "users", userId))
+    const supporterName = (supporterDoc.data()?.["displayName"] as string) ?? "Someone"
+    createNotification({
+      userId: node.authorId,
+      type: "support",
+      message: formatNotificationMessage({
+        type: "support",
+        actorName: supporterName,
+        targetTitle: node.title,
+      }),
+      link: notificationLink({ type: "support", advancementId: node.advancementId }),
+    }).catch((err) => console.error("Failed to send support notification:", err))
+  }
 
   return { success: true }
 }
@@ -180,18 +213,8 @@ export async function editNode(params: EditNodeParams): Promise<EditNodeResult> 
   const nodeDoc = await getDoc(doc(db, "nodes", params.nodeId))
   if (!nodeDoc.exists()) return { success: false, reason: "Node not found" }
 
-  const data = nodeDoc.data()
-  const node: TreeNode = {
-    id: nodeDoc.id,
-    advancementId: data["advancementId"] as string,
-    parentNodeId: (data["parentNodeId"] as string | null) ?? null,
-    authorId: data["authorId"] as string,
-    title: data["title"] as string,
-    description: data["description"] as string,
-    status: data["status"] as NodeStatus,
-    supportCount: data["supportCount"] as number,
-    createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-  }
+  const node = parseTreeNodeDoc(nodeDoc.id, nodeDoc.data())
+  if (!node) return { success: false, reason: "Invalid node data" }
 
   const validation = validateEditNode({
     userId: params.userId,
@@ -211,6 +234,26 @@ export async function editNode(params: EditNodeParams): Promise<EditNodeResult> 
   return { success: true }
 }
 
+export async function getNode(nodeId: string): Promise<TreeNode | null> {
+  const nodeDoc = await getDoc(doc(db, "nodes", nodeId))
+  if (!nodeDoc.exists()) return null
+  return parseTreeNodeDoc(nodeDoc.id, nodeDoc.data())
+}
+
+export async function getNodeLineage(nodeId: string): Promise<readonly TreeNode[]> {
+  const lineage: TreeNode[] = []
+  let currentId: string | null = nodeId
+
+  while (currentId) {
+    const node = await getNode(currentId)
+    if (!node) return currentId === nodeId ? [] : lineage
+    lineage.unshift(node)
+    currentId = node.parentNodeId
+  }
+
+  return lineage
+}
+
 export async function getNodesByAuthor(authorId: string): Promise<readonly TreeNode[]> {
   const q = query(
     collection(db, "nodes"),
@@ -218,18 +261,5 @@ export async function getNodesByAuthor(authorId: string): Promise<readonly TreeN
   )
   const snapshot = await getDocs(q)
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data()
-    return {
-      id: docSnap.id,
-      advancementId: data["advancementId"] as string,
-      parentNodeId: (data["parentNodeId"] as string | null) ?? null,
-      authorId: data["authorId"] as string,
-      title: data["title"] as string,
-      description: data["description"] as string,
-      status: data["status"] as NodeStatus,
-      supportCount: data["supportCount"] as number,
-      createdAt: (data["createdAt"] as { toDate: () => Date } | null)?.toDate() ?? new Date(),
-    }
-  })
+  return filterNulls(snapshot.docs.map((docSnap) => parseTreeNodeDoc(docSnap.id, docSnap.data())))
 }

@@ -19,6 +19,7 @@ const ProfilePage = lazy(() => import("@/features/profile/ProfilePage").then((m)
 const PoolPage = lazy(() => import("@/features/pool/PoolPage").then((m) => ({ default: m.PoolPage })))
 const AdminPage = lazy(() => import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })))
 const PublicProfilePage = lazy(() => import("@/features/profile/PublicProfilePage").then((m) => ({ default: m.PublicProfilePage })))
+const NodeDetailPage = lazy(() => import("@/features/tree/NodeDetailPage").then((m) => ({ default: m.NodeDetailPage })))
 
 function PageLoader() {
   return (
@@ -86,6 +87,7 @@ export function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/advancements" element={<AdvancementsPage />} />
               <Route path="/advancements/:id" element={<ProtectedRoute><AdvancementDetailPage /></ProtectedRoute>} />
+              <Route path="/advancements/:id/tree/:nodeId" element={<ProtectedRoute><NodeDetailPage /></ProtectedRoute>} />
               <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} />
               <Route path="/library/:id" element={<ProtectedRoute><LibraryEntryPage /></ProtectedRoute>} />
               <Route path="/newsroom" element={<ProtectedRoute><NewsroomPage /></ProtectedRoute>} />

@@ -1,691 +1,460 @@
 # Features & UX Roadmap
 
-> Comprehensive plan of missing features, security hardening, and UX improvements, prioritized by impact.
-> Generated from a full codebase audit on 2026-03-12.
-> Updated with security audit on 2026-03-12.
+> Post-MVP roadmap for security hardening, features, UX improvements, and technical debt.
+> Generated from codebase audit on 2026-03-12. Revised 2026-03-17.
 
 ---
 
-## S0 — Security Critical (must fix before public launch)
+## Completed Work
 
-### ~~S1. Firestore Rules: Overly Permissive Update Rules~~ DONE
+### Security (all S0 items done)
+- ~~S1. Firestore update rules (ownership checks)~~ DONE
+- ~~S2. Server-side rep validation in rules~~ DONE
+- ~~S3. Admin custom claims + Cloud Functions~~ DONE
+- ~~S4. Markdown XSS fix~~ DONE
+- ~~S5. Email verification flow~~ DONE
+- ~~S6. Iframe sandboxing~~ DONE
+- ~~S7. Rate limiting (Phase 1 client-side + Phase 2 Firestore rules)~~ DONE
+- ~~S8. Input length limits in Firestore rules~~ DONE
+- ~~S9. Audit logging~~ DONE
+- ~~S10. Session management~~ DONE
+- ~~S12. CSP headers~~ DONE
+- ~~S13. Dependabot / dependency scanning~~ DONE
 
-**Severity:** CRITICAL
-
-**Problem:** Every `update` rule is `allow update: if request.auth != null`. This means any authenticated user can update any other user's document, any node, any library entry, any news link, and any discussion thread — regardless of ownership.
-
-**Attack vector:** Open browser console, call `updateDoc(doc(db, "users", victimUid), { repPoints: 99999 })` — instant privilege escalation. Or delete someone else's bio, or change a node's status to "proven" without moderator rights.
-
-**Affected collections:** `users`, `nodes`, `libraryEntries`, `newsLinks`, `discussionThreads`
-
-**Fix:**
-```
-// Users: only owner can update their own profile
-match /users/{userId} {
-  allow update: if request.auth != null && request.auth.uid == userId;
-}
-
-// Nodes: only author can update, or moderator (store as custom claim)
-match /nodes/{nodeId} {
-  allow update: if request.auth != null
-    && (request.auth.uid == resource.data.authorId
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints >= 3000
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints == -1);
-}
-
-// Library entries: same pattern (author or moderator)
-// News links: same pattern
-// Discussion threads: same pattern
-```
-
-For admin operations (rep changes, deletions from admin panel), use Firebase Admin SDK via Cloud Functions instead of direct client writes.
-
-**Effort:** Medium — rewrite firestore.rules, may need Cloud Functions for admin actions
+### Features (P0-P2 + Launch Readiness done)
+- ~~P0-1. Pagination (Library, News, Discussions)~~ DONE
+- ~~P0-2. Error feedback with Toasts~~ DONE
+- ~~P0-3. Content moderation (flags system, FlagButton, FlagsPanel, flag-service)~~ DONE
+- ~~P1-4. Notification system (NotificationBell, notification-service, domain model)~~ DONE
+- ~~P1-5. Real-time updates (useRealtimeQuery + onSnapshot for Tree, Discussions, Newsroom)~~ DONE
+- ~~P1-6. Search improvements (Phase 1)~~ DONE
+- ~~P1-7. Thread & reply editing/deletion~~ DONE
+- ~~P1-8. Responsive & mobile polish~~ DONE
+- ~~P2-9. Rich text / Markdown editor~~ DONE
+- ~~P2-10. Public user profiles~~ DONE
+- ~~P2-11. Advancement activity feed~~ DONE
+- ~~P2-12. Onboarding improvements~~ DONE
+- ~~P2-13. Dark mode contrast refinements~~ DONE
+- ~~P2-14. Loading skeletons~~ DONE
 
 ---
 
-### ~~S2. Rep Validation is Client-Side Only~~ DONE
-
-**Severity:** CRITICAL
-
-**Problem:** Every service function accepts `authorRep` as a parameter and validates it locally. A malicious user can call `createNode({ authorRep: 5000, ... })` directly, bypassing the rep gate entirely. The Firestore rules don't check rep at all.
-
-**Affected:** `node-service.ts`, `library-service.ts`, `news-service.ts`, `discussion-service.ts`, `vouch-service.ts`
-
-**Fix (two options):**
-
-**Option A — Firestore Rules (simpler, limited):**
-```
-match /nodes/{nodeId} {
-  allow create: if request.auth != null
-    && request.resource.data.authorId == request.auth.uid
-    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints >= 100;
-}
-```
-This reads the user's actual rep from Firestore during the write. Costs 1 extra read per write but is fully server-enforced.
-
-**Option B — Cloud Functions (more flexible):**
-Move content creation into callable Cloud Functions that read the user's rep server-side. Client calls the function, function validates and writes. This also enables rate limiting and audit logging.
-
-**Effort:** Medium (Option A) or Large (Option B)
+## Remaining Work
 
 ---
 
-### S3. Admin Authorization Has No Backend Enforcement
+### Security — Low Priority
 
-**Severity:** CRITICAL
+#### S11. Firebase App Check
+**Severity:** LOW | **Effort:** Small (config only)
 
-**Problem:** Admin access is checked only in React (`isAdmin(guildUser.repPoints)`). The admin service functions (`deleteUser`, `updateUserRep`, `deleteNode`, etc.) are plain Firestore calls with no server-side authorization. Combined with S1, any user can set their own rep to -1 and gain full admin access.
+Code exists in `src/lib/firebase.ts` with `ReCaptchaEnterpriseProvider`. Activates when `VITE_RECAPTCHA_ENTERPRISE_KEY` env var is set.
 
-**Fix:**
-- Use Firebase Auth custom claims: `{ admin: true }` set via Admin SDK
-- Check custom claims in Firestore rules: `request.auth.token.admin == true`
-- Admin operations (delete user, change rep, delete content) should go through Cloud Functions that verify the custom claim server-side
-- Remove client-side `repPoints === -1` as the admin mechanism; use custom claims instead
+**TODO:**
+- Provision ReCaptcha Enterprise key in Google Cloud Console
+- Add key to production environment variables
+- Smoke-test existing auth and write flows
 
-**Effort:** Large — requires Firebase Admin SDK setup, Cloud Functions, claim management
+#### ~~S7 Phase 3. Hourly/Daily Rate Counters~~ DONE
+**Severity:** LOW | **Effort:** Small
 
----
+Added `RATE_LIMITS` config and `isWithinRateLimit()` pure function + `checkRateLimit()` Firestore helper. Limits: nodes (10/hr, 30/day), threads (5/hr, 20/day), replies (30/hr, 100/day), newsLinks (5/hr, 20/day), libraryEntries (3/hr, 10/day), flags (10/hr, 30/day). 8 tests. Integrated `checkRateLimit` into all 6 create functions: createNode, createThread, createReply, submitNewsLink, createLibraryEntry, flagContent.
 
-### ~~S4. Markdown Renderer Vulnerable to XSS via Link URLs~~ DONE
+#### ~~S14. Firestore Data Validation at Read Boundaries~~ DONE
+**Severity:** MEDIUM | **Status:** COMPLETE
 
-**Severity:** HIGH
+**Phase 1 DONE:** Zod schemas for TreeNode, NewsLink, DiscussionThread, DiscussionReply, ContentFlag, Notification. 12 schema tests.
 
-**File:** `src/shared/components/Markdown.tsx` line 14
+**Phase 2 DONE:** Zod schemas for GuildUser, LibraryEntry, EntryVersion. Replaced all unsafe `as` casts in library-service, user-service, AuthContext, admin-service with schema validators. 9 additional tests (21 total). EntryVersion type moved to domain layer.
 
-**Problem:** The markdown renderer escapes HTML entities but then injects raw URLs into `<a href="$2">` without validating the URL protocol. A user can inject `javascript:` or `data:` URLs, or break out of the href attribute.
+#### ~~S15. Input Sanitization Audit~~ DONE
+**Severity:** LOW | **Effort:** Small
 
-**Attack examples:**
-```markdown
-[Click](javascript:alert(document.cookie))
-[Click](data:text/html,<script>alert('xss')</script>)
-[Click](" onmouseover="alert('xss'))
-```
+**Findings:** React's built-in JSX auto-escaping + Markdown renderer's `escapeHtml()` + `sanitizeUrl()` provide strong defense against stored XSS. The `"#"` fallback for invalid URLs is intentional and safe.
 
-**Fix:** Sanitize URLs before injecting into href:
-```typescript
-function sanitizeUrl(url: string): string {
-  try {
-    const parsed = new URL(url)
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") return url
-  } catch { /* invalid URL */ }
-  return "#"
-}
-```
-Apply in `renderInline()` before the link regex replacement. Also encode quotes in the URL to prevent attribute breakout.
-
-**Effort:** Small — one function, one regex change
+**Fix applied:** Added photoURL protocol validation in ProfilePage — rejects non-http/https URLs (blocks javascript: and data: protocol injection). Firestore rules enforce length limits on all user input fields. All text content `.trim()`ed before writes.
 
 ---
 
-### S5. No Email Verification Before Granting School Email Rep Bonus
+### Technical Debt
 
-**Severity:** HIGH
+#### ~~T1. Extract Shared `timeAgo` Utility~~ DONE
+Extracted to `src/shared/utils/time.ts` with compact mode option. Replaced 5 duplicate implementations. 8 tests added.
 
-**File:** `src/features/auth/AuthContext.tsx`
+#### T2. Break Up Large Components
+**Effort:** Medium-Large
 
-**Problem:** On registration, `isSchoolEmail(email)` grants +100 Rep instantly. Firebase Auth does not verify email ownership. Anyone can register with `fake@mit.edu` and get contributor-level access immediately.
+Six components exceed 500 lines and violate single responsibility:
 
-**Fix:**
-- Call `sendEmailVerification(user)` after `createUserWithEmailAndPassword()`
-- Set initial `repPoints: 0` for all users regardless of email domain
-- Grant the school email bonus only after the user clicks the verification link
-- Check `user.emailVerified` before applying the bonus (via Cloud Function trigger on email verification, or on next login)
+| File | Lines | Suggested Splits |
+|------|-------|-----------------|
+| `AdvancementDetailPage.tsx` | 770 | Extract tab content into separate components per pillar |
+| `AdminPage.tsx` | 715 | Extract UsersPanel, FlagsPanel, AuditPanel into own files |
+| `ProfilePage.tsx` | 664 | Extract ContributionsTab, EditProfileForm, VouchSection |
+| `DiscussionForum.tsx` | 590 | Extract ThreadView, CreateThreadForm, ReplyForm |
+| `TreeView.tsx` | 500 | Extract NodeCard, CreateNodeForm, NodeFilters |
+| `Dashboard.tsx` | 499 | Extract StatsGrid, ActivityFeed, QuickActions |
 
-**Effort:** Medium — Firebase verification is built-in, but the rep bonus timing needs redesigning
+#### ~~T3. Replace Silent Error Catches~~ DONE
+Replaced all 11 `.catch(() => {})` silent swallows with descriptive `console.error` messages. Fire-and-forget notifications (4 service files) and UI data fetches (7 component files) now log errors for debugging.
 
----
-
-### ~~S6. Iframe Injection via User-Provided URLs~~ DONE
-
-**Severity:** MEDIUM
-
-**File:** `src/features/library/LibraryEntryPage.tsx`
-
-**Problem:** The `DocumentViewer` component renders `<iframe src={url} />` where `url` comes from a user-created library entry. While the form validates URLs client-side, a direct Firestore write (see S1) can store any URL. The iframe then loads arbitrary content in the user's browser.
-
-**Fix:**
-- Re-validate URLs at render time (not just at creation time)
-- Only allow iframes for whitelisted domains (YouTube, known PDF hosts)
-- For unknown URLs, render as a link card instead of an iframe
-- Add `sandbox` attribute to iframes: `sandbox="allow-scripts allow-same-origin"`
-- YouTube iframes already use `youtube-nocookie.com` (good)
-
-**Effort:** Small
-
----
-
-### ~~S7. No Rate Limiting on Any Actions~~ DONE (Phase 1)
-
-**Severity:** MEDIUM
-
-**Problem:** No rate limiting exists anywhere. A malicious user with 100+ Rep can create thousands of nodes, threads, links, or library entries. They can also spam votes on every news link.
-
-**Fix (phased):**
-- **Phase 1 — Client-side throttle:** Debounce submit buttons, disable for 2s after action
-- **Phase 2 — Firestore rules rate limit:** Use `request.time` comparisons:
-  ```
-  allow create: if request.auth != null
-    && request.time > resource.data.createdAt + duration.value(30, 's');
-  ```
-  (Firestore rate-limit rules are limited, but prevent rapid-fire writes)
-- **Phase 3 — Cloud Functions:** Proper per-user rate limiting with a counter collection tracking actions per time window
-
-**Effort:** Phase 1 small, Phase 2 small, Phase 3 medium
-
----
-
-### ~~S8. No Input Length Limits in Firestore Rules~~ DONE
-
-**Severity:** MEDIUM
-
-**Problem:** While domain validation checks title/description are non-empty, there are no maximum length checks in Firestore rules. A malicious user can bypass client validation and store megabytes of text in a single document field, causing rendering issues and inflated Firestore costs.
-
-**Affected fields:** Node title/description, thread title/body, reply body, library entry content, news link title, user bio
-
-**Fix:** Add size constraints in Firestore rules:
-```
-allow create: if request.resource.data.title.size() <= 200
-  && request.resource.data.description.size() <= 5000;
-```
-Also add corresponding max-length checks in domain validation functions and `maxLength` attributes on form inputs.
-
-**Effort:** Small
-
----
-
-## S1 — Security Important (fix soon after launch)
-
-### ~~S9. No Audit Logging for Destructive Actions~~ DONE
-
-**Severity:** MEDIUM
-
-**Problem:** Admin deletions, rep changes, status changes, and user bans leave no trail. If an admin account is compromised, there's no way to know what was changed.
-
-**Fix:**
-- Create an `auditLog` Firestore collection: `{ actorId, action, targetCollection, targetId, details, timestamp }`
-- Log all admin actions: delete user, change rep, delete content, change node status
-- Make audit log append-only (Firestore rules: `allow create` only, no update/delete)
-- Add "Audit Log" tab to admin panel
-
-**Effort:** Medium
-
----
-
-### S10. No CSRF/Session Protection Beyond Firebase Auth
-
-**Severity:** LOW
-
-**Problem:** Firebase Auth tokens are stored in IndexedDB/localStorage. While Firebase handles token refresh and expiry, there's no session invalidation mechanism if a user's account is compromised. No "sign out all devices" feature.
-
-**Fix:**
-- Add "Sign out everywhere" button to profile (revoke Firebase refresh tokens via Admin SDK)
-- Add `lastPasswordChange` timestamp to user doc
-- Optionally: show active sessions list
-
-**Effort:** Medium (requires Cloud Function)
-
----
-
-### S11. Sensitive Data Exposure in Client Bundle
-
-**Severity:** LOW
-
-**Problem:** Firebase config (API key, project ID, etc.) is embedded in the client bundle. While Firebase API keys are designed to be public (security comes from Firestore rules and Auth), the project ID enables enumeration of the Firestore API endpoint.
-
-**Current mitigation:** This is acceptable for Firebase apps — the real security boundary is Firestore rules (which need fixing per S1-S3).
-
-**Additional hardening:**
-- Enable Firebase App Check to verify requests come from your app, not arbitrary API calls
-- Set up Firestore security rule monitoring in Firebase Console
-- Enable Firebase Auth abuse prevention (rate limiting on sign-ups)
-
-**Effort:** Small (App Check is config-only)
-
----
-
-### ~~S12. No Content Security Policy (CSP) Headers~~ DONE
-
-**Severity:** LOW
-
-**Problem:** No CSP headers configured. The app embeds iframes (YouTube, document viewer) and uses `dangerouslySetInnerHTML` for Markdown. Without CSP, a successful XSS attack has full access to the page.
-
-**Fix:** Add CSP headers via Firebase Hosting config in `firebase.json`:
-```json
-{
-  "hosting": {
-    "headers": [{
-      "source": "**",
-      "headers": [{
-        "key": "Content-Security-Policy",
-        "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://www.youtube-nocookie.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com; img-src 'self' data: https:;"
-      }]
-    }]
-  }
-}
-```
-
-**Effort:** Small — config change, then test to ensure nothing breaks
-
----
-
-### ~~S13. Dependency Security Monitoring~~ DONE
-
-**Severity:** LOW
-
-**Problem:** No automated dependency vulnerability scanning. The project uses `firebase`, `react`, `three`, and other packages that could have CVEs discovered.
-
-**Fix:**
-- Add Dependabot config (`.github/dependabot.yml`) for automated PR creation on vulnerable deps
-- Add `npm audit` / `bun audit` step to CI pipeline
-- Consider Snyk or Socket for deeper supply-chain analysis
-
-**Effort:** Small
-
----
-
-## Security Implementation Order
-
-**Before public launch (S0):**
-1. S4: Fix Markdown XSS (small, immediate risk)
-2. S1: Fix Firestore update rules (medium, critical)
-3. S8: Add input length limits to rules (small)
-4. S6: Sandbox iframes (small)
-5. S2: Server-side rep validation in rules (medium)
-6. S7: Client-side rate limiting (small, Phase 1)
-7. S12: Add CSP headers (small)
-8. S13: Add Dependabot (small)
-
-**Soon after launch:**
-9. S5: Email verification flow (medium)
-10. S3: Admin custom claims + Cloud Functions (large)
-11. S9: Audit logging (medium)
-12. S7: Server-side rate limiting (medium, Phase 2-3)
-13. S11: Firebase App Check (small)
-14. S10: Session management (medium)
-
----
-
-## P0 — Critical (breaks core experience)
-
-### ~~1. Pagination Everywhere~~ DONE (Library, News, Discussions)
-
-**Problem:** Every list view loads all data at once. With 50+ users this will break.
-
-**Where:**
-- Newsroom: loads all links per advancement
-- Library: loads all entries per advancement
-- Tree: renders all nodes recursively
-- Discussion threads + replies
-- Admin panel tables
-- Dashboard activity feed (hardcapped at 8 but fetches all)
-- Profile contributions tabs
-
-**Solution:** Cursor-based pagination using Firestore `startAfter()` + `limit()`. Load 20 items per page with "Load more" buttons. For the Tree, virtualize rendering for branches with 50+ nodes.
-
-**Effort:** Medium — touches every service file and list component
-
----
-
-### ~~2. Error Feedback on Actions~~ DONE
-
-**Problem:** When creating ideas, submitting links, posting threads, voting, or editing profiles, failures show generic messages or nothing at all. Users don't know if their action worked.
-
-**Where:**
-- TreeView: support/status change catches errors silently
-- DiscussionForum: thread/reply creation has no success confirmation
-- NewsroomPage: vote failures caught silently
-- ProfilePage: edit save has no success state
-- LibraryEntryForm: save errors are vague
-
-**Solution:**
-- Use the existing Toast system (`useToast()`) for success/error feedback on every mutation
-- Show inline validation errors before submit, not after server rejection
-- Add loading spinners to all submit buttons (some already have this, make consistent)
-
-**Effort:** Small — mostly wiring up existing Toast component
-
----
-
-### 3. Content Moderation Basics
-
-**Problem:** No way for moderators to flag, hide, or act on problematic content. Admin can delete, but regular moderators (3000+ Rep) have no tools.
-
-**Missing:**
-- Report/flag button on nodes, threads, replies, news links, library entries
-- Flagged content queue for moderators
-- Temp-ban mechanic (negative rep = banned, but no UI to trigger it)
-- Reason logging for deletions
-
-**Solution:**
-- Add `flags` subcollection on each content type (userId, reason, createdAt)
-- Flag button on every content card (available to all authenticated users)
-- New "Flags" tab in admin panel showing flagged content
-- Moderator action: dismiss flag, delete content, warn user
-- Domain function: `applyRepPenalty(userId, amount, reason)` for rule-breaking
-
-**Effort:** Large — new domain model, service layer, UI components, admin tab
-
----
-
-## P1 — High Impact (significant UX improvement)
-
-### 4. Notification System
-
-**Problem:** Users have no idea when someone replies to their thread, supports their idea, vouches for them, or when their content is flagged. They have to manually check.
-
-**Solution (in-app only, no email for v1):**
-- `notifications` Firestore collection: `{ userId, type, message, link, read, createdAt }`
-- Types: `reply`, `support`, `vouch`, `flag`, `rep_change`, `status_change`
-- Bell icon in navbar with unread count badge
-- Notification dropdown/page listing recent notifications
-- Mark as read on click, "Mark all read" button
-- Trigger notifications from service functions (when creating reply, supporting node, etc.)
-
-**Effort:** Medium — new collection, service, UI component, integration into existing services
-
----
-
-### 5. Real-Time Updates
-
-**Problem:** If two users are viewing the same advancement's Tree or Discussion tab, changes from one don't appear for the other until they refresh.
-
-**Solution:**
-- Use Firestore `onSnapshot()` listeners for active views instead of one-time `getDocs()`
-- Apply to: Tree nodes, discussion threads/replies, news link scores
-- Show subtle "New content available" banner when data changes, or auto-merge
-
-**Effort:** Medium — replace fetch patterns in services with snapshot listeners
-
----
-
-### ~~6. Search That Works~~ DONE (Phase 1)
-
-**Problem:** Current search is client-side text matching on already-loaded data. No way to search across the platform.
-
-**Where it's broken:**
-- Command palette (Cmd+K) only searches page names and advancement names
-- Library search only matches loaded entry titles
-- Newsroom has no search at all
-- Tree search only matches loaded node titles/descriptions
-- Admin panel search is client-side
-
-**Solution (phased):**
-- **Phase 1:** Add search inputs to Newsroom and Admin that filter loaded data (consistent with Library/Tree)
-- **Phase 2:** Global search in command palette that queries Firestore across collections (nodes, entries, links, threads) using `where` + `orderBy` on title fields
-- **Phase 3 (future):** Algolia or Typesense integration for full-text search
-
-**Effort:** Phase 1 small, Phase 2 medium
-
----
-
-### ~~7. Thread & Reply Editing/Deletion~~ DONE
-
-**Problem:** Users can't edit or delete their own discussion posts. No thread owner controls.
-
-**Missing:**
-- Edit button on own threads and replies
-- Delete button on own threads and replies (or moderator)
-- "Edited" indicator with timestamp
-- Soft-delete (mark as deleted, show "[deleted]" placeholder)
-
-**Solution:**
-- Add `validateEditThread`, `validateDeleteThread`, `validateEditReply`, `validateDeleteReply` to domain
-- Add edit/delete service functions
-- Add UI controls (edit icon, delete with confirmation)
-- Track `updatedAt` field, show "edited" badge if different from `createdAt`
-
-**Effort:** Medium
-
----
-
-### 8. Responsive & Mobile Polish
-
-**Problem:** Several pages are functional on mobile but not optimized.
-
-**Issues found:**
-- Advancement detail page tabs are cramped on small screens
-- Library sidebar filters stack awkwardly
-- Newsroom vote buttons are tight on mobile
-- Admin panel tables overflow horizontally
-- Tree view indentation becomes unreadable at 3+ levels on narrow screens
-- Command palette input is small on mobile
-- Profile edit form fields are tight
-
-**Solution:**
-- Advancement tabs: horizontal scroll or dropdown on mobile
-- Library: move sidebar filters into a collapsible drawer
-- Newsroom: compact vote button layout
-- Admin: horizontal scroll wrapper on tables, or card layout on mobile
-- Tree: reduce indent per level on small screens, collapse deeper levels by default
-- Profile: full-width form fields
-
-**Effort:** Medium — lots of small Tailwind tweaks across many components
-
----
-
-## P2 — Medium Impact (better experience)
-
-### ~~9. Rich Text / Markdown Editor for Content Creation~~ DONE
-
-**Problem:** All content creation uses plain textarea inputs. Library articles, node descriptions, and discussion posts could benefit from formatting.
-
-**Solution:**
-- Add a lightweight markdown toolbar above textareas (bold, italic, heading, link, code, list)
-- Live preview toggle for Library entries
-- Render all user content through the existing Markdown component consistently
-- Keep it simple — no WYSIWYG, just markdown shortcuts
-
-**Effort:** Medium
-
----
-
-### ~~10. User Profile Public Pages~~ DONE
-
-**Problem:** Users can only see their own profile. There's no way to view another member's contributions, tier, or bio.
-
-**Solution:**
-- Route: `/users/:uid` — public profile page
-- Shows: display name, tier badge, bio, interests, contributions
-- Doesn't show: email, country (privacy)
-- Link user names everywhere (node authors, thread authors, news submitters) to their profile
-- Vouch button on other users' profiles
-
-**Effort:** Medium — new page, new service function, update all author displays to link
-
----
-
-### ~~11. Advancement Activity Feed~~ DONE
-
-**Problem:** The Overview tab on advancement detail pages shows static stat cards but no sense of what's happening. Users can't see recent activity across pillars for a specific advancement.
-
-**Solution:**
-- Add "Recent Activity" section to Overview tab (similar to Dashboard activity feed)
-- Show latest 10 items across nodes, threads, entries, links for that advancement
-- Time-ago formatting, icon-coded by type
-- "View all" links to respective tabs
-
-**Effort:** Small — reuse Dashboard activity pattern with advancement filter
-
----
-
-### ~~12. Onboarding Improvements~~ DONE
-
-**Problem:** After onboarding, users land on their profile with 0 or 100 Rep and no guidance on what to do next.
-
-**Solution:**
-- Post-onboarding welcome modal/banner on first Dashboard visit explaining next steps
-- "Getting Started" checklist: View an advancement, Read a library entry, Join a discussion, Submit your first idea
-- Track checklist completion in user doc, dismiss when all done
-- Vouch CTA if user has school email bonus but hasn't been vouched yet
-
+#### ~~T4. Improve `useCallback`/`useMemo` Coverage~~ DONE
 **Effort:** Small-Medium
 
----
+Added `useMemo` to: Layout.tsx command palette filter (advancementResults, navResults), TreeView.tsx `buildTree(nodes)` call. TreeView and NewsroomPage already had proper memoization for filtering/sorting.
 
-### ~~13. Dark Mode Refinements~~ DONE
-
-**Problem:** The app is dark-only. While this fits the aesthetic, some contrast issues exist.
-
-**Issues:**
-- White/20 and White/25 text can be hard to read on void backgrounds
-- Form input borders are very subtle (white/10)
-- Disabled button states are hard to distinguish
-- Active tab indicators could be stronger
-
-**Solution:**
-- Audit and bump minimum text opacity to white/30 for body text, white/40 for labels
-- Increase form input border opacity to white/15, focus state to white/30
-- Add distinct disabled styling (opacity-40 + cursor-not-allowed consistently)
-- Strengthen active tab indicators with bottom border or filled background
-
-**Effort:** Small — Tailwind class adjustments
+#### ~~T5. Lazy-Load Heavy Components~~ DONE
+All pages already lazy-loaded via `React.lazy()` in App.tsx.
 
 ---
 
-### ~~14. Loading Skeletons~~ DONE
+### Testing
 
-**Problem:** Most loading states show a simple "Loading..." text or nothing. This causes layout shifts and feels unpolished.
+#### TEST-1. Service Layer Test Coverage
+**Priority:** HIGH | **Status:** Phase 1 DONE, Phase 2 partially done
 
-**Where:**
-- All list views (entries, links, threads, nodes)
-- Dashboard stats
-- Admin overview
-- Profile contributions
+**Phase 1 DONE:** 45 tests across 4 service files using mocked Firestore:
+- `node-service.test.ts` (20 tests) — createNode, supportNode, setNodeStatus, editNode, getNode, getNodeLineage
+- `discussion-service.test.ts` (14 tests) — createThread, createReply, editThread, deleteThread, deleteReply
+- `news-service.test.ts` (10 tests) — submitNewsLink, voteNewsLink, getUserVote
+- `flag-service.test.ts` (6 tests) — flagContent, resolveFlag, getPendingFlags
 
-**Solution:**
-- Create `Skeleton` component (animated pulse rectangles matching content shape)
-- Replace "Loading..." text with skeleton layouts that match the final content
-- Use for initial page loads and tab switches
+**Phase 2 partially done:**
+- `library-service.test.ts` (9 tests) — createLibraryEntry, editLibraryEntry, getEntryVersions
+- `notification-service.test.ts` (6 tests) — createNotification, getNotifications, markAsRead, markAllAsRead
+- `vouch-service.test.ts` (10 tests) — vouchForUser, searchUserByEmail, hasBeenVouched, hasVouchedForSomeone
+- `bookmark-service.test.ts` (6 tests) — toggleBookmark, isBookmarked, getUserBookmarks
 
-**Effort:** Small-Medium — one component, applied everywhere
+**Remaining:** `admin-service.ts`, `audit-service.ts`, `globe-service.ts`, `user-service.ts`
+
+#### TEST-2. Component Integration Tests
+**Priority:** MEDIUM | **Status:** Phase 1 DONE
+
+**Phase 1 DONE (shared components + auth):**
+- `EmptyState.test.tsx` (5 tests) — title, description, action slot, all icon types
+- `Markdown.test.tsx` (6 tests) — plain text, bold, links with target/rel, URL sanitization, code blocks, wrapper class
+- `Skeleton.test.tsx` (6 tests) — SkeletonCard, SkeletonList count, SkeletonText lines, SkeletonStats grid
+- `Toast.test.tsx` (5 tests) — renders children, displays toast, error styling, multiple toasts, aria-live
+- `RepGate.test.tsx` (6 tests) — sufficient rep, custom fallback, hideWhenLocked, admin bypass
+- `AuthForm.test.tsx` (9 tests) — login/register mode switching, form submission, error display, edu hint, error clearing
+
+**Remaining (medium effort):**
+- Tree CRUD (create node, support, status change)
+- Discussion CRUD (create thread, reply, edit, delete)
+- Additional Rep-gated UI scenarios
+
+**Approach:** Vitest + Testing Library. Mock Firebase, test user interactions and state changes.
+
+#### TEST-3. Firestore Rules Tests
+**Priority:** MEDIUM | **Effort:** Medium
+
+Firestore rules are complex (ownership checks, rep validation, rate limiting) but have no automated tests.
+
+**Approach:** Use `@firebase/rules-unit-testing` with the emulator to test allow/deny for each collection and operation.
 
 ---
 
-## P3 — Nice to Have (polish & future)
+### Accessibility
 
-### 15. Keyboard Navigation
+#### ~~A11Y-1. ARIA Labels on Interactive Elements~~ DONE
+Added `role="dialog"` + `aria-modal` to FlagButton modal, Command Palette, and mobile menu. Added `aria-label` to: TreeView expand button (+ `aria-expanded`), MarkdownToolbar icon buttons, notification unread dot, Command Palette search input, VouchPanel email input, DiscussionForum title/body inputs, Newsroom vote buttons (up/down), FlagButton, discussion Edit/Delete buttons, platform link cards in AdvancementDetailPage. Added `aria-hidden` to modal overlays. Added `role="progressbar"` with `aria-valuenow`/`aria-valuemax` to rep progress bar. Added `role="region"` to notification dropdown.
 
-- Arrow keys to navigate Tree nodes
-- `Enter` to expand/collapse
-- Tab navigation through Newsroom items
-- `n` shortcut to create new content (context-aware)
-- `?` to show keyboard shortcuts overlay
+#### ~~A11Y-2. Keyboard Navigation (Basics)~~ DONE
+**Priority:** MEDIUM | **Effort:** Small
 
-### 16. Contribution Streaks & Stats
+Focus trapping in modals (FlagButton, Command Palette) via `useFocusTrap` hook. Escape key dismissal via `useEscapeKey` hook (FlagButton modal, Command Palette, mobile menu). 4 tests.
 
-- Show "X day streak" on Dashboard
-- Weekly/monthly contribution graph (GitHub-style)
+**Deferred:** Arrow key Tree navigation, `n` shortcut, `?` shortcuts overlay.
+
+#### ~~A11Y-3. ARIA Live Regions~~ DONE
+Added `role="status"` + `aria-live="polite"` to: Toast container (announces success/error/info messages), NotificationBell unread count (screen-reader-only live region announces count changes).
+
+---
+
+### Features — Nice to Have (P3)
+
+#### P3 — Polish & UX
+
+##### 16. Contribution Streaks & Stats
+- "X day streak" on Dashboard
+- Weekly/monthly contribution graph (GitHub-style heatmap)
 - "Most active in [advancement]" badge
-- Rep earned this week/month breakdown
+- Rep earned breakdown by time period
 
-### 17. Advancement Comparison
+##### 22. Page Transition Animations
+- Smooth route transitions between pages (View Transitions API or Framer Motion)
+- Subtle enter/exit animations for content sections
+- Skeleton → content fade-in for real-time data
 
+##### 23. Rep History Timeline
+- Visual timeline showing when and how Rep was earned/lost
+- Breakdown by source (vouches, supports, verification, penalties)
+- Filterable by date range and event type
+
+##### 24. Avatar / Profile Pictures
+- Firebase Storage upload or Gravatar fallback
+- Shown on profile, discussion replies, activity feeds, vouch cards
+- Image cropping/resizing on upload
+
+##### 28. URL Metadata Auto-Fetch
+- Cloud Function fetches OpenGraph metadata for submitted newsroom URLs
+- Link preview cards with title, description, thumbnail
+- Fallback to favicon + domain name if no OG tags
+
+#### P3 — Discovery & Knowledge
+
+##### 17. Advancement Comparison
 - Side-by-side view of two advancements' Trees
-- Cross-advancement search (find ideas across all advancements)
-- "Related ideas" suggestions between advancements
+- Cross-advancement search (unified results page)
+- "Related ideas" suggestions based on keyword overlap between nodes
 
-### 18. RSS Feed for Newsroom
+##### 25. 3D Tree Visualization
+- Three.js force-directed graph (currently 2D list)
+- Interactive zoom, pan, click-to-expand clusters
+- Color-coded by node status (green/red/black)
+- Toggle between 2D list and 3D graph views
 
-- Auto-import news from configurable RSS feeds per advancement
-- Mark imported vs user-submitted
-- De-duplication by URL
+##### 26. Node Detail Page
+- Dedicated route `/advancement/:id/tree/:nodeId`
+- Full lineage breadcrumb (root → parent → current)
+- Related library entries cross-linked by keyword
+- Discussion thread embedded inline
+- Support history and timeline
 
-### 19. Content Bookmarking
+##### ~~29. Fuzzy Search (Fuse.js)~~ DONE
+Client-side fuzzy search via Fuse.js (zero infrastructure). Integrated into: Command Palette (advancements + nav), TreeView (recursive tree-aware fuzzy filtering), NewsroomPage (via reusable `useSearch` hook). 7 tests for useSearch hook.
 
-- "Save for later" button on nodes, entries, links
-- Bookmarks section in profile or dashboard sidebar
-- Bookmark folders/tags
+**Deferred:** Server-side semantic search (Algolia/Typesense) for cross-content-type full-text search with filters.
 
-### 20. Export & Sharing
+##### 30. Research Paper Import
+- Paste arXiv / PubMed / DOI URL → auto-extract title, authors, abstract
+- Cloud Function fetches metadata via CrossRef / arXiv API
+- Link paper to relevant Tree node or Library entry
+- Citation count display (refreshed periodically)
 
-- Share link for specific Tree nodes (deep linking already works via URL)
-- Export Tree branch as image or PDF
-- Export Library entry as PDF
-- Copy-to-clipboard for node descriptions
+##### 31. Knowledge Gap Detection
+- Analyze Tree per advancement: identify branches with few nodes or low support
+- Surface "frontier areas" on advancement dashboard — where ideas are needed most
+- Optional: suggest related papers or news for underexplored branches
+- Moderators can pin "wanted" topics to encourage contributions
 
-### 21. Analytics Dashboard (Admin)
+#### P3 — Collaboration
 
-- User growth over time chart
-- Content creation trends
-- Most active advancements
+##### 19. Content Bookmarking
+- "Save for later" button on nodes, entries, links, threads
+- `bookmarks/{userId}_{targetType}_{targetId}` Firestore collection
+- Bookmarks tab on profile page with filters by type
+- "Saved" indicator on bookmarked content
+
+##### 27. Library Entry Editing
+- Edit capability for existing entries (author or 3000+ Rep)
+- Version history stored in `libraryEntryVersions` subcollection
+- Diff view between versions (similar to GitHub compare)
+- Revert to previous version (admin only)
+
+##### 32. Co-Authorship
+- Invite collaborators to co-author a Tree node or Library entry
+- Co-authors listed on content, all earn Rep on supports
+- `contentCollaborators/{contentId}_{userId}` collection
+- Permission: original author can add/remove collaborators
+
+##### 33. Working Groups
+- Create named groups around a specific advancement or cross-cutting topic
+- Group chat (discussion threads scoped to group)
+- Shared bookmarks and reading lists
+- Group activity feed on dashboard
+- Rep requirement to create (500+), open to join
+
+##### 34. Peer Review Queue
+- Authors can submit nodes or Library entries for formal peer review
+- Reviewers assigned from 3000+ Rep pool (or self-select)
+- Structured feedback form: accuracy, clarity, novelty, evidence quality
+- Review status: pending → in review → approved / needs revision / rejected
+- Approved content gets "peer-reviewed" badge + bonus Rep for author and reviewers
+
+##### 35. Hypothesis Tracker
+- Formal hypothesis → experiment design → results pipeline per Tree node
+- Structured fields: hypothesis statement, methodology, expected outcome, actual outcome
+- Status: proposed → testing → confirmed / refuted
+- Links to Data Vault datasets used as evidence
+- Proven hypotheses auto-update parent node status to "proven"
+
+#### P3 — Engagement & Gamification
+
+##### 36. Achievements & Badges
+- Milestone badges: "First Node", "100 Supports Given", "Library Scholar" (10+ entries)
+- Advancement-specific badges: "Fusion Pioneer", "Gene Editor", etc.
+- Displayed on profile and next to username in discussions
+- `achievements/{userId}_{achievementId}` collection
+- Cloud Function triggers on relevant events
+
+##### 37. Weekly Challenges
+- Auto-generated or admin-curated weekly prompts per advancement
+- Examples: "Write a Library entry about X", "Propose an idea that builds on node Y"
+- Leaderboard for challenge participants
+- Bonus Rep for top contributors each week
+
+##### 38. Spotlight System
+- Community-nominated "Idea of the Week" per advancement
+- Featured contributor profiles rotated on homepage/dashboard
+- Admin or 3000+ Rep can nominate; community votes
+- Spotlighted content gets boosted visibility
+
+#### P3 — Platform & Infrastructure
+
+##### 20. Export & Sharing
+- Export Tree branch as SVG/PNG image or PDF
+- Export Library entry as PDF with proper formatting
+- Share button with copy-to-clipboard for direct links
+- OpenGraph meta tags for rich link previews when shared on social media
+
+##### 21. Analytics Dashboard (Admin)
+- User growth over time chart (daily/weekly/monthly)
+- Content creation trends per advancement
 - Rep distribution histogram
-- Retention metrics (active users per week)
+- Retention metrics (DAU/WAU/MAU, return rate)
+- Moderation stats (flags resolved, avg response time)
 
-### 22. Email Verification Flow
+##### 39. Progressive Web App (PWA)
+- Service worker for offline Library reading
+- Push notifications for replies, supports, flags
+- Install prompt on mobile browsers
+- Cached assets for fast repeat visits
 
-- Send verification email on registration
-- Badge for verified email on profile
-- Consider requiring verification before earning Rep
+##### 40. Public API
+- REST or GraphQL API for read-only access to public data
+- API keys with rate limiting (keyed to user Rep level)
+- Endpoints: advancements, nodes, library entries, newsroom links
+- Enables third-party tools, research dashboards, browser extensions
 
-### 23. The Dojo (Future Feature)
+##### 41. Embeddable Widgets
+- Embeddable Tree branch viewer for external sites
+- "Powered by The Guild" attribution link
+- `<iframe>` or web component with configurable theme
+- Drives discovery and new user acquisition
 
-- Course/lesson creation interface for professors
-- Built on Library entries as curriculum
-- Mentor-mentee matching
-- Progress tracking and completion certificates
-- Separate rep pathway for teaching contributions
+##### 42. Internationalization (i18n)
+- UI string extraction to locale files
+- Community-contributed translations
+- RTL layout support
+- Language selector in user settings
 
-### 24. The Data Vault (Future Feature)
+##### 43. Email Digest System
+- Configurable weekly/daily digest of activity in followed advancements
+- Includes: new nodes, popular discussions, newsroom highlights
+- Unsubscribe per advancement or globally
+- Cloud Function scheduled job + SendGrid/Mailgun integration
 
-- Dataset upload with metadata (format, size, source, license)
-- Peer review workflow (assigned reviewers, approval/rejection)
-- Version tracking for datasets
-- Citation tracking
-- Falsification detection flags
-
-### 25. The Launchpad (Future Feature)
-
-- GitHub OAuth integration
-- PR tracking → Rep conversion
-- Notion/Google Docs linking
-- External contribution verification
-- Per-advancement resource aggregation
+##### 44. Webhook & Integration Bus
+- User-configurable webhooks for events (new node in advancement X, Rep milestone)
+- Slack integration: post highlights to a channel
+- Zapier/Make trigger for automation
+- Foundation for The Launchpad phase
 
 ---
 
-## Implementation Order (Suggested)
+### Future Phases (Post-Launch)
 
-**Sprint 0 (Security Hardening — before public launch):**
-- S4: Fix Markdown XSS
-- S1: Rewrite Firestore update rules (ownership checks)
-- S8: Input length limits in Firestore rules
-- S6: Sandbox iframes, whitelist domains
-- S2: Server-side rep validation in rules
-- S7 Phase 1: Client-side rate limiting (debounce)
-- S12: CSP headers in firebase.json
-- S13: Dependabot config
+#### Phase 6: The Dojo
+- Course/lesson creation interface for professors and mentors
+- Built on Library entries as modular curriculum units
+- Structured learning paths per advancement (beginner → contributor-ready)
+- Mentor-mentee matching based on advancement + expertise level
+- Progress tracking, quizzes, completion certificates
+- Mentor earns Rep for mentee milestones
+- Integration with peer review queue for student submissions
 
-**Sprint 1 (Foundation):**
-- P0-1: Pagination
-- P0-2: Error feedback with Toasts
-- P2-14: Loading skeletons
-- S5: Email verification flow
+#### Phase 7: The Pool
+- Donation-funded treasury with transparent accounting dashboard
+- Monthly maintenance costs deducted first, remainder funds contributors
+- Voting system for fund allocation (3000+ Rep to vote)
+- Proposal system: contributors pitch experiments, community votes to fund
+- Milestone-based payouts (funds released as deliverables are met)
+- Public ledger of all transactions
+- Stripe/Open Collective integration for donations
 
-**Sprint 2 (Community):**
-- P1-4: Notification system
-- P1-7: Thread editing/deletion
-- P2-10: Public user profiles
-- S9: Audit logging for admin actions
+#### Phase 8: The Launchpad
+- GitHub OAuth integration (merged PRs to linked repos earn Rep)
+- Notion / Google Docs / NotebookLM / Obsidian connectors
+- External contribution tracking and verification via webhooks
+- "Linked Projects" section on advancement pages
+- Auto-sync: external activity summarized on advancement dashboard
+- Contribution credit system (map external commits to Tree nodes)
 
-**Sprint 3 (Quality + Security):**
-- P0-3: Content moderation
-- P1-6: Search improvements (Phase 1+2)
-- P2-13: Contrast/accessibility pass
-- S3: Admin custom claims + Cloud Functions
-- S7 Phase 2-3: Server-side rate limiting
+#### Phase 9: The Data Vault
+- Open dataset repository (1000+ Rep to upload)
+- Structured metadata: format, size, methodology, licensing
+- Peer review pipeline with reviewer queue (similar to P3-34)
+- Organizational backing verification (institutional uploads prioritized)
+- Versioned datasets with changelogs
+- Falsified data detection → huge Rep penalty / instant ban + all related Tree nodes flagged for re-verification
+- Integration with Hypothesis Tracker (P3-35): datasets as evidence
 
-**Sprint 4 (Polish):**
-- P1-8: Mobile responsive polish
-- P2-9: Markdown editor
-- P2-11: Advancement activity feed
-- P2-12: Onboarding improvements
-- S11: Firebase App Check
+#### Phase 10: Advanced Reputation
+- Google Scholar citation integration (auto-verify published work)
+- Breakthrough awards (+500 Rep) nominated by 3000+ Rep users
+- Rep decay for extended inactivity (configurable grace period)
+- Negative Rep enforcement (temp ban, restricted access)
+- Rep leaderboard per advancement (opt-in, privacy-respecting)
+- Rep multipliers for cross-advancement contributions
+- Reputation API for external verification ("is this person a contributor?")
 
-**Sprint 5 (Scale):**
-- P1-5: Real-time updates
-- P3-16: Contribution stats
-- P3-21: Analytics dashboard
-- S10: Session management
+#### Phase 11: Community & Social
+- Discord integration (auto-role assignment based on Rep tier)
+- @mentions in discussions and node descriptions
+- Contributor spotlight system (automated + community-nominated)
+- Weekly digest emails (see P3-43 as foundation)
+- Direct messaging between users (opt-in, Rep-gated)
+- "Follow" users and advancements for personalized feed
+- Community events calendar (AMAs, hackathons, paper readings)
 
-**Future:** Dojo, Data Vault, Launchpad, RSS, Discord integration
+#### Phase 12: Content Quality
+- Plain-language research paper translations (crowdsourced, bounty-funded from Pool)
+- Bounty system for knowledge gaps (moderators post bounties, Pool funds payouts)
+- Formal peer review workflow for Library entries (extends P3-34)
+- Citation graph between nodes (visual map of how ideas reference each other)
+- Quality scoring algorithm (combines peer review, supports, citations)
+- "Verified" badge for content that passes peer review + has supporting data
+- Automated plagiarism detection for Library submissions
+
+---
+
+## Suggested Sprint Sequence
+
+### ~~Sprint 1: Code Quality & Resilience~~ COMPLETE
+| # | Item | Status |
+|---|------|--------|
+| 1 | ~~T1: Extract `timeAgo` utility~~ | DONE — 8 tests |
+| 2 | ~~T3: Replace silent error catches~~ | DONE — 11 catches fixed |
+| 3 | ~~S14: Zod schemas for Firestore reads (Phase 1)~~ | DONE — 12 tests, 6 document types |
+| 4 | ~~A11Y-1: ARIA labels pass (Phase 1)~~ | DONE — modals, inputs, buttons, progress bar |
+| 5 | ~~TEST-1: Service layer tests (top 4 services)~~ | DONE — 45 tests (node, discussion, news, flag) |
+
+### Sprint 2: Discovery & Content Depth
+| # | Item | Effort | Why |
+|---|------|--------|-----|
+| 1 | ~~26: Node Detail Page~~ | DONE — route, lineage breadcrumb, child nodes, all actions |
+| 2 | ~~29: Fuzzy Search (Fuse.js)~~ | DONE — useSearch hook, CommandPalette, TreeView, NewsroomPage |
+| 3 | ~~19: Content Bookmarking~~ | DONE — toggle bookmark, profile tab, Firestore rules |
+| 4 | ~~24: Avatar / Profile Pictures~~ | DONE — UserAvatar component, photoURL field, 7 locations updated |
+| 5 | ~~27: Library Entry Editing + Versions~~ | DONE — version snapshots on edit, version history UI, 9 tests |
+
+### Sprint 3: Collaboration & Engagement
+| # | Item | Effort | Why |
+|---|------|--------|-----|
+| 1 | 34: Peer Review Queue | Large | Core to research credibility — proven nodes need formal validation |
+| 2 | 36: Achievements & Badges | Medium | Drives retention, gives newcomers visible goals |
+| 3 | 38: Spotlight System | Small | Surfaces best work, rewards quality over quantity |
+| 4 | 32: Co-Authorship | Medium | Research is collaborative — single-author model is limiting |
+| 5 | 16: Contribution Streaks & Stats | Medium | GitHub-style heatmap keeps people coming back |
+
+### Sprint 4: Platform Maturity
+| # | Item | Effort | Why |
+|---|------|--------|-----|
+| 1 | 39: PWA (offline + push notifications) | Medium | Mobile experience, re-engagement via push |
+| 2 | 43: Email Digest System | Medium | Brings users back who don't check the site daily |
+| 3 | 20: Export & Sharing + OG meta tags | Small | Content that can't be shared can't grow |
+| 4 | 30: Research Paper Import | Medium | Bridge between The Guild and the broader research world |
+| 5 | T2: Break up large components | Medium | Unblocks faster iteration on feature work |
+
+**After Sprint 4:** Future phases (Dojo, Pool, Launchpad, Data Vault) in order, informed by community feedback and growth metrics.

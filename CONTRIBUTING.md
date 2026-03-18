@@ -43,6 +43,13 @@ The project uses TypeScript with all strict flags enabled:
 - **Early returns** over nested conditionals
 - **Array methods** (`map`, `filter`, `reduce`) over imperative loops
 
+### Data Validation
+
+- Use **Zod schemas** at Firestore read boundaries to validate incoming data
+- All Firestore document reads go through `parse*Doc` functions in `src/lib/firestore-schemas.ts`
+- Domain types are defined in `src/domain/`, schemas derive from them
+- Never use `as` type assertions for Firestore data — always validate with a schema parser
+
 ## How to Contribute
 
 ### Reporting Bugs
@@ -64,7 +71,7 @@ Open an issue using the **Feature Request** template. Describe:
 
 ### Submitting Code
 
-1. Create a branch from `main`: `git checkout -b feat/your-feature`
+1. Create a branch from `master`: `git checkout -b feat/your-feature`
 2. Make your changes following the principles above
 3. Ensure all checks pass:
    ```bash
@@ -73,7 +80,7 @@ Open an issue using the **Feature Request** template. Describe:
    bun run build      # Production build
    ```
 4. Write a clear commit message describing what and why
-5. Push and open a pull request against `main`
+5. Push and open a pull request against `master`
 
 ### Pull Request Guidelines
 
@@ -89,13 +96,31 @@ Open an issue using the **Feature Request** template. Describe:
 src/
 ├── domain/        # Pure business logic and types (no React, no Firebase)
 ├── features/      # Feature modules (components + service layer)
-├── shared/        # Reusable UI components
-└── lib/           # External service configuration
+│   ├── admin/     # Admin panel
+│   ├── auth/      # Authentication
+│   ├── bookmarks/ # Content bookmarking
+│   ├── discussions/ # Threaded discussions
+│   ├── library/   # Grand Library + versioning
+│   ├── moderation/ # Content flagging
+│   ├── newsroom/  # News aggregation + voting
+│   ├── notifications/ # Notification system
+│   ├── tree/      # Knowledge graph
+│   ├── vouch/     # Vouch system
+│   └── ...        # globe, home, onboarding, pool, profile
+├── shared/        # Reusable UI components, hooks, and utilities
+│   ├── components/ # Layout, Toast, RepGate, Markdown, EmptyState, etc.
+│   ├── hooks/     # useSearch, useFocusTrap, useRealtimeQuery, etc.
+│   └── utils/     # timeAgo, etc.
+└── lib/           # External service configuration + schemas
+    ├── firebase.ts # Firebase initialization
+    ├── firestore-schemas.ts # Zod document validators
+    └── rate-limit.ts # Rate limiting logic
 ```
 
 - **`domain/`** is framework-agnostic. It should never import React or Firebase.
 - **`features/`** each own their UI and data access. Don't import across feature boundaries except through domain types.
-- **`shared/`** components are generic and reusable.
+- **`shared/`** components, hooks, and utilities are generic and reusable.
+- **`lib/`** holds Firebase config, Zod schemas for Firestore reads, and rate limiting.
 
 ## Questions?
 
