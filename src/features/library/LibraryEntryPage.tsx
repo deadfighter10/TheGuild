@@ -13,6 +13,7 @@ import { AdvancementIcon } from "@/shared/components/Icons"
 import { Markdown } from "@/shared/components/Markdown"
 import { SkeletonText } from "@/shared/components/Skeleton"
 import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
+import { SubmitForReviewButton } from "@/features/peer-review/SubmitForReviewButton"
 import { timeAgo } from "@/shared/utils/time"
 import { sanitizeUrl } from "@/shared/components/markdown-renderer"
 
@@ -309,6 +310,13 @@ export function LibraryEntryPage() {
               targetId={entry.id}
               targetTitle={entry.title}
               advancementId={entry.advancementId}
+            />
+            <SubmitForReviewButton
+              contentType="libraryEntry"
+              contentId={entry.id}
+              contentTitle={entry.title}
+              advancementId={entry.advancementId}
+              authorId={entry.authorId}
             />
             {canEdit && (
               <button

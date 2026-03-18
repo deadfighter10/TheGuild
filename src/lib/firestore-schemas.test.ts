@@ -9,6 +9,7 @@ import {
   parseGuildUserDoc,
   parseLibraryEntryDoc,
   parseEntryVersionDoc,
+  parsePeerReviewDoc,
 } from "./firestore-schemas"
 
 const fakeTimestamp = { toDate: () => new Date("2025-01-01T00:00:00Z") }
@@ -354,5 +355,96 @@ describe("parseEntryVersionDoc", () => {
     })
     expect(result?.contentType).toBe("article")
     expect(result?.difficulty).toBe("introductory")
+  })
+})
+
+describe("parsePeerReviewDoc", () => {
+  it("parses a valid pending peer review", () => {
+    const result = parsePeerReviewDoc("review-1", {
+      contentType: "node",
+      contentId: "node-1",
+      contentTitle: "Telomere Extension",
+      advancementId: "adv-1",
+      authorId: "user-1",
+      authorName: "Alice",
+      status: "pending",
+      reviewerId: null,
+      reviewerName: null,
+      feedback: null,
+      decision: null,
+      submittedAt: fakeTimestamp,
+      reviewedAt: null,
+    })
+    expect(result).toEqual({
+      id: "review-1",
+      contentType: "node",
+      contentId: "node-1",
+      contentTitle: "Telomere Extension",
+      advancementId: "adv-1",
+      authorId: "user-1",
+      authorName: "Alice",
+      status: "pending",
+      reviewerId: null,
+      reviewerName: null,
+      feedback: null,
+      decision: null,
+      submittedAt: new Date("2025-01-01T00:00:00Z"),
+      reviewedAt: null,
+    })
+  })
+
+  it("parses a completed review with feedback", () => {
+    const result = parsePeerReviewDoc("review-2", {
+      contentType: "libraryEntry",
+      contentId: "entry-1",
+      contentTitle: "CRISPR Guide",
+      advancementId: "adv-2",
+      authorId: "user-1",
+      authorName: "Alice",
+      status: "approved",
+      reviewerId: "mod-1",
+      reviewerName: "Dr. Bob",
+      feedback: {
+        accuracy: { score: 5, comment: "Excellent" },
+        clarity: { score: 4, comment: "Clear" },
+        novelty: { score: 3, comment: "Standard" },
+        evidenceQuality: { score: 5, comment: "Strong" },
+        summary: "Well done",
+      },
+      decision: "approved",
+      submittedAt: fakeTimestamp,
+      reviewedAt: fakeTimestamp,
+    })
+    expect(result?.status).toBe("approved")
+    expect(result?.reviewerId).toBe("mod-1")
+    expect(result?.feedback?.accuracy.score).toBe(5)
+    expect(result?.decision).toBe("approved")
+    expect(result?.reviewedAt).toEqual(new Date("2025-01-01T00:00:00Z"))
+  })
+
+  it("defaults optional fields when missing", () => {
+    const result = parsePeerReviewDoc("review-3", {
+      contentType: "node",
+      contentId: "node-1",
+      contentTitle: "Test",
+      advancementId: "adv-1",
+      authorId: "user-1",
+      authorName: "Alice",
+      status: "pending",
+      submittedAt: fakeTimestamp,
+    })
+    expect(result?.reviewerId).toBeNull()
+    expect(result?.reviewerName).toBeNull()
+    expect(result?.feedback).toBeNull()
+    expect(result?.decision).toBeNull()
+    expect(result?.reviewedAt).toBeNull()
+  })
+
+  it("returns null for invalid data", () => {
+    const result = parsePeerReviewDoc("review-1", {
+      contentType: "invalid",
+      contentId: "node-1",
+    })
+    expect(result).toBeNull()
   })
 })

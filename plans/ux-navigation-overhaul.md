@@ -1,43 +1,20 @@
 # UX & Navigation Overhaul
 
-## Status: COMPLETE
+## Status: COMPLETE (archived)
 
-All items from this plan have been implemented as part of Phase 5.6.
+All items implemented as part of Phase 5.6. This plan is kept as a historical record and design reference.
 
 ---
 
 ## What Was Built
 
-### 1. Command Palette (Cmd+K) ✅
-- Global search overlay triggered by `Cmd+K` or search icon
-- Searches advancements by name and navigation shortcuts
-- Keyboard navigation (arrow keys + enter)
-
-### 2. Context-aware Navbar ✅
-- Transforms when inside advancement sub-hub
-- Shows breadcrumb with advancement name + color accent
-- Sub-hub tabs replace main nav links inside advancement pages
-- Search trigger, notification bell, profile dropdown
-
-### 3. Pillar Identity System ✅
-- Consistent color + icon per pillar (Tree/green, Library/cyan, Newsroom/violet, Discussions/amber, Platforms/slate)
-- Applied across section headers, nav items, empty states, breadcrumbs
-
-### 4. Newcomer Onramp Banners ✅
-- Contextual getting-started strips based on auth state and Rep level
-- Dismissible, persisted in localStorage
-
-### 5. Dashboard for Logged-in Users ✅
-- Replaces landing page with personalized hub
-- Shows contributions, activity feed, quick actions, stats
-
-### 6. Advancement Switcher ✅
-- Dropdown in sub-hub header for cross-advancement travel
-- Navigates to same tab in new advancement
-
-### 7. Pillar Section Headers ✅
-- Contextual explainers per sub-hub tab
-- Dismissible on first visits
+1. **Command Palette (Cmd+K)** — Global search overlay with keyboard navigation
+2. **Context-aware Navbar** — Transforms inside advancement sub-hubs with breadcrumbs + tabs
+3. **Pillar Identity System** — Consistent color + icon per pillar across all surfaces
+4. **Newcomer Onramp Banners** — Contextual, dismissible getting-started strips
+5. **Dashboard** — Personalized hub replacing landing page for logged-in users
+6. **Advancement Switcher** — Cross-advancement dropdown in sub-hub header
+7. **Pillar Section Headers** — Contextual explainers, dismissible
 
 ---
 

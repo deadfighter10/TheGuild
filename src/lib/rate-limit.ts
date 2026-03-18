@@ -23,6 +23,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   newsLinks: { perHour: 5, perDay: 20 },
   libraryEntries: { perHour: 3, perDay: 10 },
   flags: { perHour: 10, perDay: 30 },
+  peerReviews: { perHour: 5, perDay: 15 },
 }
 
 type RateLimitAllowed = { readonly allowed: true }

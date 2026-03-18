@@ -5,6 +5,7 @@ export type NotificationType =
   | "flag"
   | "rep_change"
   | "status_change"
+  | "review"
 
 export type Notification = {
   readonly id: string
@@ -34,6 +35,8 @@ export function formatNotificationMessage(params: {
       return `Your reputation was updated`
     case "status_change":
       return `Your idea "${params.targetTitle}" status was changed`
+    case "review":
+      return `Your content "${params.targetTitle}" has a peer review update`
   }
 }
 
@@ -52,6 +55,7 @@ export function notificationLink(params: {
     case "rep_change":
       return "/profile"
     case "flag":
+    case "review":
       return params.advancementId ? `/advancements/${params.advancementId}` : "/"
   }
 }

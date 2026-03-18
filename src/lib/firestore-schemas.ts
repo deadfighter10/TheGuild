@@ -7,6 +7,7 @@ import type { Notification } from "@/domain/notification"
 import type { GuildUser } from "@/domain/user"
 import type { LibraryEntry } from "@/domain/library-entry"
 import type { EntryVersion } from "@/domain/library-entry"
+import type { PeerReview } from "@/domain/peer-review"
 
 const firestoreTimestamp = z
   .any()
@@ -132,7 +133,7 @@ export function parseContentFlagDoc(id: string, data: Record<string, unknown>): 
   return { id, ...result.data } satisfies ContentFlag
 }
 
-const notificationTypeSchema = z.enum(["reply", "support", "vouch", "flag", "rep_change", "status_change"])
+const notificationTypeSchema = z.enum(["reply", "support", "vouch", "flag", "rep_change", "status_change", "review"])
 
 const notificationDocSchema = z.object({
   userId: z.string(),
@@ -221,4 +222,46 @@ export function parseEntryVersionDoc(id: string, data: Record<string, unknown>):
     return null
   }
   return { id, ...result.data } satisfies EntryVersion
+}
+
+const peerReviewContentTypeSchema = z.enum(["node", "libraryEntry"])
+const peerReviewStatusSchema = z.enum(["pending", "in_review", "approved", "needs_revision", "rejected"])
+const peerReviewDecisionSchema = z.enum(["approved", "needs_revision", "rejected"])
+
+const feedbackScoreSchema = z.object({
+  score: z.number(),
+  comment: z.string(),
+})
+
+const reviewFeedbackSchema = z.object({
+  accuracy: feedbackScoreSchema,
+  clarity: feedbackScoreSchema,
+  novelty: feedbackScoreSchema,
+  evidenceQuality: feedbackScoreSchema,
+  summary: z.string(),
+})
+
+const peerReviewDocSchema = z.object({
+  contentType: peerReviewContentTypeSchema,
+  contentId: z.string(),
+  contentTitle: z.string(),
+  advancementId: z.string(),
+  authorId: z.string(),
+  authorName: z.string(),
+  status: peerReviewStatusSchema,
+  reviewerId: z.nullable(z.string()).optional().default(null),
+  reviewerName: z.nullable(z.string()).optional().default(null),
+  feedback: z.nullable(reviewFeedbackSchema).optional().default(null),
+  decision: z.nullable(peerReviewDecisionSchema).optional().default(null),
+  submittedAt: firestoreTimestamp,
+  reviewedAt: optionalFirestoreTimestamp,
+})
+
+export function parsePeerReviewDoc(id: string, data: Record<string, unknown>): PeerReview | null {
+  const result = peerReviewDocSchema.safeParse(data)
+  if (!result.success) {
+    console.error(`Invalid PeerReview doc ${id}:`, result.error.message)
+    return null
+  }
+  return { id, ...result.data } satisfies PeerReview
 }

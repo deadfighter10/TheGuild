@@ -12,6 +12,7 @@ import { EmptyState } from "@/shared/components/EmptyState"
 import { useToast } from "@/shared/components/Toast"
 import { FlagButton } from "@/features/moderation/FlagButton"
 import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
+import { SubmitForReviewButton } from "@/features/peer-review/SubmitForReviewButton"
 import { timeAgo } from "@/shared/utils/time"
 
 const STATUS_STYLES: Record<NodeStatus, { readonly dot: string; readonly label: string; readonly badge: string }> = {
@@ -274,6 +275,14 @@ export function NodeDetailPage() {
           {guildUser && !isOwnNode && (
             <FlagButton targetCollection="nodes" targetId={node.id} targetTitle={node.title} />
           )}
+
+          <SubmitForReviewButton
+            contentType="node"
+            contentId={node.id}
+            contentTitle={node.title}
+            advancementId={node.advancementId}
+            authorId={node.authorId}
+          />
 
           <BookmarkButton
             targetType="node"
