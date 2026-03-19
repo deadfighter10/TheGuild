@@ -1,5 +1,7 @@
 import type { UserBackground } from "./onboarding"
 
+export type UserRole = "user" | "admin"
+
 export type GuildUser = {
   readonly uid: string
   readonly email: string
@@ -14,16 +16,17 @@ export type GuildUser = {
   readonly interests: readonly string[]
   readonly bio: string
   readonly photoURL: string | null
+  readonly role: UserRole
+  readonly bannedUntil: Date | null
 }
 
 export type RepTier = "observer" | "contributor" | "moderator"
 
-export function isAdmin(rep: number): boolean {
-  return rep === -1
+export function isAdmin(role: UserRole): boolean {
+  return role === "admin"
 }
 
 export function getRepTier(rep: number): RepTier {
-  if (isAdmin(rep)) return "moderator"
   if (rep >= 3000) return "moderator"
   if (rep >= 100) return "contributor"
   return "observer"

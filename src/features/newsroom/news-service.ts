@@ -21,10 +21,12 @@ import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
 import { parseNewsLinkDoc } from "@/lib/firestore-schemas"
 import { validateSubmitNewsLink, validateVoteNewsLink } from "@/domain/news-link"
 import type { NewsLink, VoteValue } from "@/domain/news-link"
+import type { UserRole } from "@/domain/user"
 
 type SubmitLinkParams = {
   readonly submitterId: string
   readonly submitterRep: number
+  readonly submitterRole: UserRole
   readonly advancementId: string
   readonly title: string
   readonly url: string
@@ -37,6 +39,7 @@ type SubmitLinkResult =
 export async function submitNewsLink(params: SubmitLinkParams): Promise<SubmitLinkResult> {
   const validation = validateSubmitNewsLink({
     submitterRep: params.submitterRep,
+    submitterRole: params.submitterRole,
     title: params.title,
     url: params.url,
     advancementId: params.advancementId,
@@ -102,6 +105,7 @@ type VoteResult =
 export async function voteNewsLink(
   userId: string,
   userRep: number,
+  userRole: UserRole,
   linkId: string,
   newVote: VoteValue,
 ): Promise<VoteResult> {
@@ -125,6 +129,7 @@ export async function voteNewsLink(
   const validation = validateVoteNewsLink({
     userId,
     userRep,
+    userRole,
     link,
     existingVote,
     newVote,

@@ -40,6 +40,12 @@ service cloud.firestore {
         && request.resource.data.isSchoolEmail == resource.data.isSchoolEmail;
       // Delete only via Cloud Functions (Admin SDK bypasses rules)
       allow delete: if false;
+
+      // Rep history: read own only, writes only via Admin SDK (Cloud Functions)
+      match /repHistory/{eventId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // Advancements are readable by anyone authenticated, immutable

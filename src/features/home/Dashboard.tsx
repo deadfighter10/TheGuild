@@ -196,7 +196,7 @@ export function Dashboard() {
 
   if (!guildUser) return null
 
-  const admin = isAdmin(guildUser.repPoints)
+  const admin = isAdmin(guildUser.role)
   const tier = getRepTier(guildUser.repPoints)
   const tierDisplay = TIER_DISPLAY[tier]
   const { activity, counts, loading } = useUserActivity(guildUser.uid)

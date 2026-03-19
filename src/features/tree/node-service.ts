@@ -17,6 +17,7 @@ import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
 import { parseTreeNodeDoc } from "@/lib/firestore-schemas"
 import { validateCreateNode, validateSupportNode, validateSetNodeStatus, validateEditNode } from "@/domain/node"
 import type { TreeNode, NodeStatus } from "@/domain/node"
+import type { UserRole } from "@/domain/user"
 import { REP_THRESHOLDS } from "@/domain/reputation"
 import { createNotification } from "@/features/notifications/notification-service"
 import { formatNotificationMessage, notificationLink } from "@/domain/notification"
@@ -24,6 +25,7 @@ import { formatNotificationMessage, notificationLink } from "@/domain/notificati
 type CreateNodeParams = {
   readonly authorId: string
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly advancementId: string
   readonly parentNodeId: string | null
   readonly title: string
@@ -37,6 +39,7 @@ type CreateNodeResult =
 export async function createNode(params: CreateNodeParams): Promise<CreateNodeResult> {
   const validation = validateCreateNode({
     authorRep: params.authorRep,
+    authorRole: params.authorRole,
     title: params.title,
     description: params.description,
     advancementId: params.advancementId,
@@ -111,6 +114,7 @@ type SupportNodeResult =
 export async function supportNode(
   userId: string,
   userRep: number,
+  userRole: UserRole,
   nodeId: string,
 ): Promise<SupportNodeResult> {
   const nodeDoc = await getDoc(doc(db, "nodes", nodeId))
@@ -130,6 +134,7 @@ export async function supportNode(
   const validation = validateSupportNode({
     userId,
     userRep,
+    userRole,
     node,
     alreadySupported: existingSupport.exists(),
   })
@@ -177,10 +182,11 @@ type SetStatusResult =
 
 export async function setNodeStatus(
   moderatorRep: number,
+  moderatorRole: UserRole,
   nodeId: string,
   newStatus: NodeStatus,
 ): Promise<SetStatusResult> {
-  const validation = validateSetNodeStatus({ moderatorRep, newStatus })
+  const validation = validateSetNodeStatus({ moderatorRep, moderatorRole, newStatus })
 
   if (!validation.valid) {
     return { success: false, reason: validation.reason }
@@ -200,6 +206,7 @@ export async function hasUserSupported(userId: string, nodeId: string): Promise<
 type EditNodeParams = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly nodeId: string
   readonly title: string
   readonly description: string
@@ -219,6 +226,7 @@ export async function editNode(params: EditNodeParams): Promise<EditNodeResult> 
   const validation = validateEditNode({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     node,
     title: params.title,
     description: params.description,

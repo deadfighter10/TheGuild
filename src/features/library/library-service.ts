@@ -17,11 +17,13 @@ import { db } from "@/lib/firebase"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { validateCreateLibraryEntry, validateEditLibraryEntry } from "@/domain/library-entry"
 import type { LibraryEntry, Difficulty, ContentType, EntryVersion } from "@/domain/library-entry"
+import type { UserRole } from "@/domain/user"
 import { parseLibraryEntryDoc, parseEntryVersionDoc } from "@/lib/firestore-schemas"
 
 type CreateEntryParams = {
   readonly authorId: string
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly advancementId: string
   readonly title: string
   readonly content: string
@@ -37,6 +39,7 @@ type CreateEntryResult =
 export async function createLibraryEntry(params: CreateEntryParams): Promise<CreateEntryResult> {
   const validation = validateCreateLibraryEntry({
     authorRep: params.authorRep,
+    authorRole: params.authorRole,
     title: params.title,
     content: params.content,
     contentType: params.contentType,
@@ -77,6 +80,7 @@ export async function createLibraryEntry(params: CreateEntryParams): Promise<Cre
 type EditEntryParams = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly entryId: string
   readonly title: string
   readonly content: string
@@ -104,6 +108,7 @@ export async function editLibraryEntry(params: EditEntryParams): Promise<EditEnt
   const validation = validateEditLibraryEntry({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     entry,
     title: params.title,
     content: params.content,

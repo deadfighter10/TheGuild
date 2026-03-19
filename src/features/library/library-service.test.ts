@@ -59,6 +59,7 @@ describe("createLibraryEntry", () => {
   const validParams = {
     authorId: "user-1",
     authorRep: 1500,
+    authorRole: "user" as const,
     advancementId: "adv-1",
     title: "Test Entry",
     content: "Some content",
@@ -111,6 +112,7 @@ describe("editLibraryEntry", () => {
     const result = await editLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user" as const,
       entryId: "entry-1",
       title: "Updated Title",
       content: "Updated content",
@@ -128,6 +130,7 @@ describe("editLibraryEntry", () => {
     await editLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user" as const,
       entryId: "entry-1",
       title: "Updated Title",
       content: "Updated content",
@@ -150,6 +153,7 @@ describe("editLibraryEntry", () => {
     const result = await editLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user" as const,
       entryId: "entry-1",
       title: "Updated",
       content: "Updated",
@@ -166,6 +170,7 @@ describe("editLibraryEntry", () => {
     const result = await editLibraryEntry({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       entryId: "entry-1",
       title: "Updated",
       content: "Updated",

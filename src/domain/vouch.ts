@@ -1,10 +1,11 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type VouchRequest = {
   readonly voucherId: string
   readonly voucheeId: string
   readonly voucherRep: number
+  readonly voucherRole: UserRole
   readonly voucheeHasBeenVouched: boolean
   readonly voucherHasVouchedBefore: boolean
 }
@@ -18,7 +19,7 @@ export function validateVouch(request: VouchRequest): VouchValidation {
     return { valid: false, reason: "You cannot vouch for yourself" }
   }
 
-  if (!isAdmin(request.voucherRep) && request.voucherRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.voucherRole) && request.voucherRep < REP_THRESHOLDS.contributorMin) {
     return {
       valid: false,
       reason: "You need at least 100 Rep to vouch for someone",

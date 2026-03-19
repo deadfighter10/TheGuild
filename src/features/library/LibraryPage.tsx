@@ -87,7 +87,7 @@ export function LibraryPage() {
     loadEntries()
   }, [loadEntries])
 
-  const canContribute = guildUser ? isAdmin(guildUser.repPoints) || guildUser.repPoints >= LIBRARY_REP_MIN : false
+  const canContribute = guildUser ? isAdmin(guildUser.role) || guildUser.repPoints >= LIBRARY_REP_MIN : false
 
   const filteredEntries = useMemo(() => {
     if (!searchQuery) return entries

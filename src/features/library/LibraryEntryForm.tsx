@@ -60,6 +60,7 @@ export function LibraryEntryForm({
         const result = await editLibraryEntry({
           userId: guildUser.uid,
           userRep: guildUser.repPoints,
+          userRole: guildUser.role,
           entryId: existingEntry.id,
           title,
           content,
@@ -75,6 +76,7 @@ export function LibraryEntryForm({
         const result = await createLibraryEntry({
           authorId: guildUser.uid,
           authorRep: guildUser.repPoints,
+          authorRole: guildUser.role,
           advancementId,
           title,
           content,

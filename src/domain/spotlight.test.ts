@@ -9,6 +9,7 @@ describe("validateNomination", () => {
   it("returns valid for a moderator nominating content", () => {
     const result = validateNomination({
       nominatorRep: 3000,
+      nominatorRole: "user",
       nominatorId: "mod-1",
       authorId: "user-1",
       contentTitle: "Great Idea",
@@ -17,9 +18,10 @@ describe("validateNomination", () => {
     expect(result).toEqual({ valid: true })
   })
 
-  it("allows admin to nominate", () => {
+  it("allows admin to nominate regardless of rep", () => {
     const result = validateNomination({
-      nominatorRep: -1,
+      nominatorRep: 0,
+      nominatorRole: "admin",
       nominatorId: "admin-1",
       authorId: "user-1",
       contentTitle: "Great Idea",
@@ -31,6 +33,7 @@ describe("validateNomination", () => {
   it("rejects when nominator has insufficient rep", () => {
     const result = validateNomination({
       nominatorRep: 2999,
+      nominatorRole: "user",
       nominatorId: "user-1",
       authorId: "user-2",
       contentTitle: "Great Idea",
@@ -42,6 +45,7 @@ describe("validateNomination", () => {
   it("rejects self-nomination", () => {
     const result = validateNomination({
       nominatorRep: 3000,
+      nominatorRole: "user",
       nominatorId: "user-1",
       authorId: "user-1",
       contentTitle: "My Idea",
@@ -53,6 +57,7 @@ describe("validateNomination", () => {
   it("rejects when content already nominated this week", () => {
     const result = validateNomination({
       nominatorRep: 3000,
+      nominatorRole: "user",
       nominatorId: "mod-1",
       authorId: "user-1",
       contentTitle: "Great Idea",
@@ -64,6 +69,7 @@ describe("validateNomination", () => {
   it("rejects when content title is empty", () => {
     const result = validateNomination({
       nominatorRep: 3000,
+      nominatorRole: "user",
       nominatorId: "mod-1",
       authorId: "user-1",
       contentTitle: "  ",
@@ -75,17 +81,17 @@ describe("validateNomination", () => {
 
 describe("canNominate", () => {
   it("returns true for moderators", () => {
-    expect(canNominate(3000)).toBe(true)
-    expect(canNominate(5000)).toBe(true)
+    expect(canNominate(3000, "user")).toBe(true)
+    expect(canNominate(5000, "user")).toBe(true)
   })
 
-  it("returns true for admin", () => {
-    expect(canNominate(-1)).toBe(true)
+  it("returns true for admin regardless of rep", () => {
+    expect(canNominate(0, "admin")).toBe(true)
   })
 
   it("returns false for regular contributors", () => {
-    expect(canNominate(100)).toBe(false)
-    expect(canNominate(2999)).toBe(false)
+    expect(canNominate(100, "user")).toBe(false)
+    expect(canNominate(2999, "user")).toBe(false)
   })
 })
 

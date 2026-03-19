@@ -63,7 +63,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
     setVoting(true)
 
     try {
-      const result = await voteNewsLink(guildUser.uid, guildUser.repPoints, link.id, value)
+      const result = await voteNewsLink(guildUser.uid, guildUser.repPoints, guildUser.role, link.id, value)
       if (result.success) {
         const delta = userVote === null ? value : value - userVote
         setLocalScore((prev) => prev + delta)
@@ -78,7 +78,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
   }
 
   const canVote = guildUser
-    ? canContribute(guildUser.repPoints) && guildUser.uid !== link.submitterId
+    ? canContribute(guildUser.repPoints, guildUser.role) && guildUser.uid !== link.submitterId
     : false
 
   const hostname = (() => {
@@ -194,7 +194,7 @@ export function NewsroomPage() {
     { keys: ["title", "url"], threshold: 0.4 },
   )
 
-  const canSubmit = guildUser ? canContribute(guildUser.repPoints) : false
+  const canSubmit = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
 
   const handleFilterAdvancement = (advId: string | undefined) => {
     if (advId) {

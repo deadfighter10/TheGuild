@@ -10,6 +10,7 @@ import {
   parseLibraryEntryDoc,
   parseEntryVersionDoc,
   parsePeerReviewDoc,
+  parseRepEventDoc,
 } from "./firestore-schemas"
 
 const fakeTimestamp = { toDate: () => new Date("2025-01-01T00:00:00Z") }
@@ -237,6 +238,8 @@ describe("parseGuildUserDoc", () => {
       interests: ["fusion", "crispr"],
       bio: "Researcher at MIT",
       photoURL: "https://example.com/photo.jpg",
+      role: "user",
+      bannedUntil: null,
     })
   })
 
@@ -254,6 +257,31 @@ describe("parseGuildUserDoc", () => {
     expect(result?.interests).toEqual([])
     expect(result?.bio).toBe("")
     expect(result?.photoURL).toBeNull()
+    expect(result?.role).toBe("user")
+    expect(result?.bannedUntil).toBeNull()
+  })
+
+  it("parses admin role correctly", () => {
+    const result = parseGuildUserDoc("admin-1", {
+      email: "admin@example.com",
+      displayName: "Admin",
+      repPoints: 500,
+      isSchoolEmail: false,
+      role: "admin",
+    })
+    expect(result?.role).toBe("admin")
+  })
+
+  it("parses bannedUntil timestamp", () => {
+    const banTimestamp = { toDate: () => new Date("2026-06-01T00:00:00Z") }
+    const result = parseGuildUserDoc("banned-1", {
+      email: "banned@example.com",
+      displayName: "Banned",
+      repPoints: 0,
+      isSchoolEmail: false,
+      bannedUntil: banTimestamp,
+    })
+    expect(result?.bannedUntil).toEqual(new Date("2026-06-01T00:00:00Z"))
   })
 
   it("returns null for invalid data", () => {
@@ -446,5 +474,121 @@ describe("parsePeerReviewDoc", () => {
       contentId: "node-1",
     })
     expect(result).toBeNull()
+  })
+})
+
+describe("parseRepEventDoc", () => {
+  it("parses a valid rep event document", () => {
+    const result = parseRepEventDoc("event-1", {
+      userId: "user-1",
+      delta: 10,
+      reason: "node_created",
+      sourceId: "node-abc",
+      sourceDescription: "Created node 'Telomere Extension'",
+      timestamp: fakeTimestamp,
+      balanceAfter: 110,
+    })
+    expect(result).toEqual({
+      id: "event-1",
+      userId: "user-1",
+      delta: 10,
+      reason: "node_created",
+      sourceId: "node-abc",
+      sourceDescription: "Created node 'Telomere Extension'",
+      timestamp: new Date("2025-01-01T00:00:00Z"),
+      balanceAfter: 110,
+    })
+  })
+
+  it("parses a negative delta event", () => {
+    const result = parseRepEventDoc("event-2", {
+      userId: "user-1",
+      delta: -100,
+      reason: "moderation_penalty",
+      sourceId: "flag-1",
+      sourceDescription: "Spam penalty",
+      timestamp: fakeTimestamp,
+      balanceAfter: 50,
+    })
+    expect(result?.delta).toBe(-100)
+    expect(result?.reason).toBe("moderation_penalty")
+    expect(result?.balanceAfter).toBe(50)
+  })
+
+  it("parses an event with null sourceId", () => {
+    const result = parseRepEventDoc("event-3", {
+      userId: "user-1",
+      delta: 33,
+      reason: "onboarding_action",
+      sourceId: null,
+      sourceDescription: "Completed tutorial",
+      timestamp: fakeTimestamp,
+      balanceAfter: 33,
+    })
+    expect(result?.sourceId).toBeNull()
+  })
+
+  it("returns null for missing required fields", () => {
+    const result = parseRepEventDoc("event-1", {
+      userId: "user-1",
+      delta: 10,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("returns null for invalid reason", () => {
+    const result = parseRepEventDoc("event-1", {
+      userId: "user-1",
+      delta: 10,
+      reason: "not_a_valid_reason",
+      sourceId: null,
+      sourceDescription: "test",
+      timestamp: fakeTimestamp,
+      balanceAfter: 10,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("returns null for non-numeric delta", () => {
+    const result = parseRepEventDoc("event-1", {
+      userId: "user-1",
+      delta: "ten",
+      reason: "node_created",
+      sourceId: null,
+      sourceDescription: "test",
+      timestamp: fakeTimestamp,
+      balanceAfter: 10,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("accepts all valid rep reasons", () => {
+    const reasons = [
+      "node_created", "node_support_received", "node_proven", "node_breakthrough",
+      "library_entry_created", "library_entry_approved", "peer_review_completed",
+      "content_peer_reviewed", "discussion_thread_created", "discussion_reply_created",
+      "news_link_submitted", "news_link_upvoted", "spotlight_win", "achievement_earned",
+      "streak_milestone", "school_email_verified", "vouch_received", "vouch_liability",
+      "vouch_slots_revoked", "vouch_freeze", "onboarding_action", "supervised_approval_bonus",
+      "supervised_reviewer", "welcome_engagement", "breadth_bonus", "quality_multiplier",
+      "flag_accurate", "flag_inaccurate", "flag_abuse_penalty", "moderation_penalty",
+      "moderation_warning", "appeal_reversal", "appeal_filing_fee", "inactivity_decay",
+      "breakthrough_nomination", "breakthrough_vote", "breakthrough_reviewer",
+      "breakthrough_revocation", "governance_vote", "content_deleted_reversal",
+      "admin_adjustment", "daily_cap_applied", "support_given",
+    ]
+    for (const reason of reasons) {
+      const result = parseRepEventDoc(`event-${reason}`, {
+        userId: "user-1",
+        delta: 1,
+        reason,
+        sourceId: null,
+        sourceDescription: "test",
+        timestamp: fakeTimestamp,
+        balanceAfter: 1,
+      })
+      expect(result).not.toBeNull()
+      expect(result?.reason).toBe(reason)
+    }
   })
 })

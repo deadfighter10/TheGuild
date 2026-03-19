@@ -1,5 +1,5 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type Difficulty = "introductory" | "intermediate" | "advanced"
 
@@ -44,6 +44,7 @@ const LIBRARY_CONTRIBUTOR_MIN = 1500
 
 type CreateLibraryEntryRequest = {
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly title: string
   readonly content: string
   readonly contentType: ContentType
@@ -55,6 +56,7 @@ type CreateLibraryEntryRequest = {
 type EditLibraryEntryRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly entry: LibraryEntry
   readonly title: string
   readonly content: string
@@ -126,7 +128,7 @@ function isValidUrl(url: string): boolean {
 }
 
 export function validateCreateLibraryEntry(request: CreateLibraryEntryRequest): ValidationResult {
-  if (!isAdmin(request.authorRep) && request.authorRep < LIBRARY_CONTRIBUTOR_MIN) {
+  if (!isAdmin(request.authorRole) && request.authorRep < LIBRARY_CONTRIBUTOR_MIN) {
     return { valid: false, reason: "You need at least 1500 Rep to contribute to the Grand Library" }
   }
 
@@ -142,7 +144,7 @@ export function validateCreateLibraryEntry(request: CreateLibraryEntryRequest): 
 
 export function validateEditLibraryEntry(request: EditLibraryEntryRequest): ValidationResult {
   const isAuthor = request.userId === request.entry.authorId
-  const isModerator = isAdmin(request.userRep) || request.userRep >= REP_THRESHOLDS.moderatorMin
+  const isModerator = isAdmin(request.userRole) || request.userRep >= REP_THRESHOLDS.moderatorMin
 
   if (!isAuthor && !isModerator) {
     return { valid: false, reason: "Only the author or a moderator can edit this entry" }

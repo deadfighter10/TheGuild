@@ -19,7 +19,7 @@ export function VouchPanel() {
 
   if (!guildUser) return null
 
-  const hasEnoughRep = canContribute(guildUser.repPoints)
+  const hasEnoughRep = canContribute(guildUser.repPoints, guildUser.role)
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault()
@@ -53,6 +53,7 @@ export function VouchPanel() {
         guildUser.uid,
         searchResult.uid,
         guildUser.repPoints,
+        guildUser.role,
       )
 
       if (result.valid) {

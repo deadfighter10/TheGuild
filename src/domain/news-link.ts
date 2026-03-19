@@ -1,5 +1,5 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type VoteValue = 1 | -1
 
@@ -19,6 +19,7 @@ type ValidationResult = ValidationSuccess | ValidationFailure
 
 type SubmitNewsLinkRequest = {
   readonly submitterRep: number
+  readonly submitterRole: UserRole
   readonly title: string
   readonly url: string
   readonly advancementId: string
@@ -27,13 +28,14 @@ type SubmitNewsLinkRequest = {
 type VoteNewsLinkRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly link: NewsLink
   readonly existingVote: VoteValue | null
   readonly newVote: VoteValue
 }
 
 export function validateSubmitNewsLink(request: SubmitNewsLinkRequest): ValidationResult {
-  if (!isAdmin(request.submitterRep) && request.submitterRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.submitterRole) && request.submitterRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to submit news links" }
   }
 
@@ -53,7 +55,7 @@ export function validateSubmitNewsLink(request: SubmitNewsLinkRequest): Validati
 }
 
 export function validateVoteNewsLink(request: VoteNewsLinkRequest): ValidationResult {
-  if (!isAdmin(request.userRep) && request.userRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.userRole) && request.userRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to vote" }
   }
 

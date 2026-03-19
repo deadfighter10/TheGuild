@@ -21,6 +21,7 @@ import { addRateLimitToBatch, checkRateLimit } from "@/lib/rate-limit"
 import { parseDiscussionThreadDoc, parseDiscussionReplyDoc } from "@/lib/firestore-schemas"
 import { validateCreateThread, validateCreateReply, validateEditThread, validateEditReply, validateDeleteThread, validateDeleteReply } from "@/domain/discussion"
 import type { DiscussionThread, DiscussionReply } from "@/domain/discussion"
+import type { UserRole } from "@/domain/user"
 import { createNotification } from "@/features/notifications/notification-service"
 import { formatNotificationMessage, notificationLink } from "@/domain/notification"
 
@@ -28,6 +29,7 @@ type CreateThreadParams = {
   readonly authorId: string
   readonly authorName: string
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly advancementId: string
   readonly title: string
   readonly body: string
@@ -40,6 +42,7 @@ type CreateThreadResult =
 export async function createThread(params: CreateThreadParams): Promise<CreateThreadResult> {
   const validation = validateCreateThread({
     authorRep: params.authorRep,
+    authorRole: params.authorRole,
     title: params.title,
     body: params.body,
   })
@@ -104,6 +107,7 @@ type CreateReplyParams = {
   readonly authorId: string
   readonly authorName: string
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly threadId: string
   readonly body: string
 }
@@ -115,6 +119,7 @@ type CreateReplyResult =
 export async function createReply(params: CreateReplyParams): Promise<CreateReplyResult> {
   const validation = validateCreateReply({
     authorRep: params.authorRep,
+    authorRole: params.authorRole,
     body: params.body,
   })
 
@@ -238,6 +243,7 @@ export function subscribeToRepliesByThread(
 export async function editThread(params: {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly threadId: string
   readonly title: string
   readonly body: string
@@ -250,6 +256,7 @@ export async function editThread(params: {
   const validation = validateEditThread({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     thread,
     title: params.title,
     body: params.body,
@@ -269,6 +276,7 @@ export async function editThread(params: {
 export async function editReply(params: {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly replyId: string
   readonly body: string
 }): Promise<MutationResult> {
@@ -280,6 +288,7 @@ export async function editReply(params: {
   const validation = validateEditReply({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     reply,
     body: params.body,
   })
@@ -297,6 +306,7 @@ export async function editReply(params: {
 export async function deleteThread(params: {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly threadId: string
 }): Promise<MutationResult> {
   const threadDoc = await getDoc(doc(db, "discussionThreads", params.threadId))
@@ -307,6 +317,7 @@ export async function deleteThread(params: {
   const validation = validateDeleteThread({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     thread,
   })
 
@@ -319,6 +330,7 @@ export async function deleteThread(params: {
 export async function deleteReply(params: {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly replyId: string
   readonly threadId: string
 }): Promise<MutationResult> {
@@ -330,6 +342,7 @@ export async function deleteReply(params: {
   const validation = validateDeleteReply({
     userId: params.userId,
     userRep: params.userRep,
+    userRole: params.userRole,
     reply,
   })
 

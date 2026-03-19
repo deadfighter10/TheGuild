@@ -68,6 +68,7 @@ describe("createNode", () => {
   const validParams = {
     authorId: "user-1",
     authorRep: 200,
+    authorRole: "user" as const,
     advancementId: "adv-1",
     parentNodeId: null,
     title: "My Idea",
@@ -141,7 +142,7 @@ describe("supportNode", () => {
   it("supports a node and increments counts", async () => {
     setupNodeDoc()
 
-    const result = await supportNode("user-1", 200, "node-1")
+    const result = await supportNode("user-1", 200, "user", "node-1")
 
     expect(result).toEqual({ success: true })
     expect(setDoc).toHaveBeenCalled()
@@ -149,7 +150,7 @@ describe("supportNode", () => {
   })
 
   it("rejects when node does not exist", async () => {
-    const result = await supportNode("user-1", 200, "node-1")
+    const result = await supportNode("user-1", 200, "user", "node-1")
 
     expect(result).toEqual({ success: false, reason: "Node not found" })
     expect(setDoc).not.toHaveBeenCalled()
@@ -163,7 +164,7 @@ describe("supportNode", () => {
       data: {},
     }
 
-    const result = await supportNode("user-1", 200, "node-1")
+    const result = await supportNode("user-1", 200, "user", "node-1")
 
     expect(result).toEqual({ success: false, reason: expect.any(String) })
     expect(setDoc).not.toHaveBeenCalled()
@@ -177,7 +178,7 @@ describe("supportNode", () => {
       data: { displayName: "Alice" },
     }
 
-    await supportNode("user-1", 200, "node-1")
+    await supportNode("user-1", 200, "user", "node-1")
 
     expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
       userId: "other-user",
@@ -188,7 +189,7 @@ describe("supportNode", () => {
   it("does not notify when supporting own node", async () => {
     setupNodeDoc({ authorId: "user-1" })
 
-    await supportNode("user-1", 200, "node-1")
+    await supportNode("user-1", 200, "user", "node-1")
 
     expect(createNotification).not.toHaveBeenCalled()
   })
@@ -196,14 +197,14 @@ describe("supportNode", () => {
 
 describe("setNodeStatus", () => {
   it("updates status when moderator has enough rep", async () => {
-    const result = await setNodeStatus(3000, "node-1", "proven")
+    const result = await setNodeStatus(3000, "user", "node-1", "proven")
 
     expect(result).toEqual({ success: true })
     expect(updateDoc).toHaveBeenCalled()
   })
 
   it("rejects when rep is too low for moderation", async () => {
-    const result = await setNodeStatus(100, "node-1", "proven")
+    const result = await setNodeStatus(100, "user", "node-1", "proven")
 
     expect(result).toEqual({ success: false, reason: expect.any(String) })
     expect(updateDoc).not.toHaveBeenCalled()
@@ -235,6 +236,7 @@ describe("editNode", () => {
     const result = await editNode({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       nodeId: "node-1",
       title: "Updated Title",
       description: "Updated Desc",
@@ -250,6 +252,7 @@ describe("editNode", () => {
     const result = await editNode({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       nodeId: "node-1",
       title: "Updated",
       description: "Updated",
@@ -262,6 +265,7 @@ describe("editNode", () => {
     const result = await editNode({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       nodeId: "node-1",
       title: "Updated",
       description: "Updated",

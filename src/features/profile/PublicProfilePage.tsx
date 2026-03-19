@@ -91,7 +91,7 @@ export function PublicProfilePage() {
 
   const isOwnProfile = currentUser?.uid === user.uid
   const tier = getRepTier(user.repPoints)
-  const admin = isAdmin(user.repPoints)
+  const admin = isAdmin(user.role)
 
   const interestAdvancements = ADVANCEMENTS.filter((a) => user.interests.includes(a.id))
 

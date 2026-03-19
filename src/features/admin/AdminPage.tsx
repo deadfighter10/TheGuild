@@ -208,7 +208,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
                       <button
                         onClick={() => { setEditingRep(user.uid); setRepValue(String(user.repPoints)) }}
                         className={`font-mono font-semibold hover:underline ${
-                          user.repPoints === -1 ? "text-red-400" :
+                          user.role === "admin" ? "text-red-400" :
                           user.repPoints >= 3000 ? "text-amber-400" :
                           user.repPoints >= 100 ? "text-cyan-400" : "text-white/40"
                         }`}
@@ -226,7 +226,7 @@ function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
                   </td>
                   <td className="px-4 py-3 text-center text-white/25 hidden md:table-cell">{timeAgo(user.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    {user.repPoints !== -1 && (
+                    {user.role !== "admin" && (
                       <ConfirmButton label="Delete" onConfirm={() => handleDelete(user.uid)} />
                     )}
                   </td>
@@ -651,7 +651,7 @@ export function AdminPage() {
     getAdminStats().then(setStats).catch((err) => console.error("Failed to load admin stats:", err))
   }, [])
 
-  if (!guildUser || !isAdmin(guildUser.repPoints)) {
+  if (!guildUser || !isAdmin(guildUser.role)) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16 text-center">
         <p className="text-white/30">Access denied.</p>

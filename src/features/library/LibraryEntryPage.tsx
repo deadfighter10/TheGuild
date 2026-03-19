@@ -249,7 +249,7 @@ export function LibraryEntryPage() {
   const theme = ADVANCEMENT_THEMES[entry.advancementId]
   const advancement = ADVANCEMENTS.find((a) => a.id === entry.advancementId)
   const canEdit = guildUser && (
-    guildUser.uid === entry.authorId || canModerate(guildUser.repPoints)
+    guildUser.uid === entry.authorId || canModerate(guildUser.repPoints, guildUser.role)
   )
 
   if (editing && canEdit) {

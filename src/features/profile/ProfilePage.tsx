@@ -524,7 +524,7 @@ export function ProfilePage() {
 
   if (!guildUser) return null
 
-  const admin = isAdmin(guildUser.repPoints)
+  const admin = isAdmin(guildUser.role)
   const tier = getRepTier(guildUser.repPoints)
   const style = TIER_STYLES[tier]
 

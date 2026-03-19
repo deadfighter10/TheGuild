@@ -1,9 +1,11 @@
 import type { ReactNode } from "react"
 import { isAdmin } from "@/domain/user"
+import type { UserRole } from "@/domain/user"
 
 type RepGateProps = {
   readonly currentRep: number
   readonly requiredRep: number
+  readonly role: UserRole
   readonly children: ReactNode
   readonly fallback?: ReactNode
   readonly hideWhenLocked?: boolean
@@ -12,11 +14,12 @@ type RepGateProps = {
 export function RepGate({
   currentRep,
   requiredRep,
+  role,
   children,
   fallback,
   hideWhenLocked = false,
 }: RepGateProps) {
-  if (isAdmin(currentRep) || currentRep >= requiredRep) {
+  if (isAdmin(role) || currentRep >= requiredRep) {
     return <>{children}</>
   }
 

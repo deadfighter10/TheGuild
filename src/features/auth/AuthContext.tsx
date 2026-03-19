@@ -97,6 +97,8 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       interests: [],
       bio: "",
       photoURL: null,
+      role: "user" as const,
+      bannedUntil: null,
     }
 
     try {
@@ -112,6 +114,8 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
         country: null,
         background: null,
         interests: [],
+        role: "user",
+        bannedUntil: null,
       })
     } catch (error) {
       await credential.user.delete()

@@ -5,7 +5,7 @@ import { RepGate } from "./RepGate"
 describe("RepGate", () => {
   it("renders children when user has enough Rep", () => {
     render(
-      <RepGate currentRep={100} requiredRep={100}>
+      <RepGate currentRep={100} requiredRep={100} role="user">
         <p>Secret content</p>
       </RepGate>,
     )
@@ -14,7 +14,7 @@ describe("RepGate", () => {
 
   it("renders fallback when user does not have enough Rep", () => {
     render(
-      <RepGate currentRep={50} requiredRep={100}>
+      <RepGate currentRep={50} requiredRep={100} role="user">
         <p>Secret content</p>
       </RepGate>,
     )
@@ -27,6 +27,7 @@ describe("RepGate", () => {
       <RepGate
         currentRep={50}
         requiredRep={100}
+        role="user"
         fallback={<p>Custom message</p>}
       >
         <p>Secret content</p>
@@ -38,16 +39,16 @@ describe("RepGate", () => {
 
   it("renders nothing when hideWhenLocked is true and Rep is insufficient", () => {
     const { container } = render(
-      <RepGate currentRep={50} requiredRep={100} hideWhenLocked>
+      <RepGate currentRep={50} requiredRep={100} role="user" hideWhenLocked>
         <p>Secret content</p>
       </RepGate>,
     )
     expect(container.innerHTML).toBe("")
   })
 
-  it("renders children when user is admin (rep = -1) regardless of required rep", () => {
+  it("renders children when user is admin regardless of required rep", () => {
     render(
-      <RepGate currentRep={-1} requiredRep={3000}>
+      <RepGate currentRep={0} requiredRep={3000} role="admin">
         <p>Admin access</p>
       </RepGate>,
     )
@@ -56,7 +57,7 @@ describe("RepGate", () => {
 
   it("renders children even with hideWhenLocked when rep is sufficient", () => {
     render(
-      <RepGate currentRep={200} requiredRep={100} hideWhenLocked>
+      <RepGate currentRep={200} requiredRep={100} role="user" hideWhenLocked>
         <p>Visible content</p>
       </RepGate>,
     )

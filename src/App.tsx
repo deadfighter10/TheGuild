@@ -37,7 +37,7 @@ function ProtectedRoute({ children }: { readonly children: ReactNode }) {
 
   if (loading) return <PageLoader />
   if (!firebaseUser) return <Navigate to="/auth" replace />
-  if (guildUser && !guildUser.onboardingComplete && !isAdmin(guildUser.repPoints)) return <Navigate to="/onboarding" replace />
+  if (guildUser && !guildUser.onboardingComplete && !isAdmin(guildUser.role)) return <Navigate to="/onboarding" replace />
 
   return <>{children}</>
 }
@@ -57,7 +57,7 @@ function AdminRoute({ children }: { readonly children: ReactNode }) {
 
   if (loading) return <PageLoader />
   if (!firebaseUser) return <Navigate to="/auth" replace />
-  if (!guildUser || !isAdmin(guildUser.repPoints)) return <Navigate to="/" replace />
+  if (!guildUser || !isAdmin(guildUser.role)) return <Navigate to="/" replace />
 
   return <>{children}</>
 }
@@ -67,7 +67,7 @@ function PublicRoute({ children }: { readonly children: ReactNode }) {
 
   if (loading) return <PageLoader />
   if (firebaseUser) {
-    if (guildUser && isAdmin(guildUser.repPoints)) return <Navigate to="/admin" replace />
+    if (guildUser && isAdmin(guildUser.role)) return <Navigate to="/admin" replace />
     if (guildUser && !guildUser.onboardingComplete) return <Navigate to="/onboarding" replace />
     return <Navigate to="/" replace />
   }

@@ -1,5 +1,5 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type NodeStatus = "theoretical" | "proven" | "disproved"
 
@@ -21,6 +21,7 @@ type ValidationResult = ValidationSuccess | ValidationFailure
 
 type CreateNodeRequest = {
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly title: string
   readonly description: string
   readonly advancementId: string
@@ -30,17 +31,19 @@ type CreateNodeRequest = {
 type SupportNodeRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly node: TreeNode
   readonly alreadySupported: boolean
 }
 
 type SetNodeStatusRequest = {
   readonly moderatorRep: number
+  readonly moderatorRole: UserRole
   readonly newStatus: NodeStatus
 }
 
 export function validateCreateNode(request: CreateNodeRequest): ValidationResult {
-  if (!isAdmin(request.authorRep) && request.authorRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.authorRole) && request.authorRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to create an idea" }
   }
 
@@ -56,7 +59,7 @@ export function validateCreateNode(request: CreateNodeRequest): ValidationResult
 }
 
 export function validateSupportNode(request: SupportNodeRequest): ValidationResult {
-  if (!isAdmin(request.userRep) && request.userRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.userRole) && request.userRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to support ideas" }
   }
 
@@ -76,7 +79,7 @@ export function validateSupportNode(request: SupportNodeRequest): ValidationResu
 }
 
 export function validateSetNodeStatus(request: SetNodeStatusRequest): ValidationResult {
-  if (!isAdmin(request.moderatorRep) && request.moderatorRep < REP_THRESHOLDS.moderatorMin) {
+  if (!isAdmin(request.moderatorRole) && request.moderatorRep < REP_THRESHOLDS.moderatorMin) {
     return { valid: false, reason: "Only moderators (3000+ Rep) can change node status" }
   }
 
@@ -86,13 +89,14 @@ export function validateSetNodeStatus(request: SetNodeStatusRequest): Validation
 type EditNodeRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly node: TreeNode
   readonly title: string
   readonly description: string
 }
 
 export function validateEditNode(request: EditNodeRequest): ValidationResult {
-  if (request.node.authorId !== request.userId && !isAdmin(request.userRep) && request.userRep < REP_THRESHOLDS.moderatorMin) {
+  if (request.node.authorId !== request.userId && !isAdmin(request.userRole) && request.userRep < REP_THRESHOLDS.moderatorMin) {
     return { valid: false, reason: "Only the author or a moderator can edit this idea" }
   }
 

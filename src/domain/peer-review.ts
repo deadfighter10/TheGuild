@@ -1,5 +1,5 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type PeerReviewContentType = "node" | "libraryEntry"
 
@@ -60,6 +60,7 @@ type SubmitForReviewRequest = {
   readonly authorId: string
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly contentTitle: string
   readonly hasExistingReview: boolean
 }
@@ -67,6 +68,7 @@ type SubmitForReviewRequest = {
 type ClaimReviewRequest = {
   readonly reviewerId: string
   readonly reviewerRep: number
+  readonly reviewerRole: UserRole
   readonly authorId: string
   readonly currentStatus: PeerReviewStatus
 }
@@ -86,7 +88,7 @@ export function validateSubmitForReview(request: SubmitForReviewRequest): Valida
     return { valid: false, reason: "Only the author can submit content for review" }
   }
 
-  if (!isAdmin(request.userRep) && request.userRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.userRole) && request.userRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to submit for review" }
   }
 
@@ -106,7 +108,7 @@ export function validateClaimReview(request: ClaimReviewRequest): ValidationResu
     return { valid: false, reason: "You cannot review your own content" }
   }
 
-  if (!isAdmin(request.reviewerRep) && request.reviewerRep < REP_THRESHOLDS.moderatorMin) {
+  if (!isAdmin(request.reviewerRole) && request.reviewerRep < REP_THRESHOLDS.moderatorMin) {
     return { valid: false, reason: "You need at least 3000 Rep to review content" }
   }
 
@@ -148,10 +150,10 @@ export function validateSubmitFeedback(request: SubmitFeedbackRequest): Validati
   return { valid: true }
 }
 
-export function canSubmitForReview(rep: number): boolean {
-  return isAdmin(rep) || rep >= REP_THRESHOLDS.contributorMin
+export function canSubmitForReview(rep: number, role: UserRole): boolean {
+  return isAdmin(role) || rep >= REP_THRESHOLDS.contributorMin
 }
 
-export function canReviewContent(rep: number): boolean {
-  return isAdmin(rep) || rep >= REP_THRESHOLDS.moderatorMin
+export function canReviewContent(rep: number, role: UserRole): boolean {
+  return isAdmin(role) || rep >= REP_THRESHOLDS.moderatorMin
 }

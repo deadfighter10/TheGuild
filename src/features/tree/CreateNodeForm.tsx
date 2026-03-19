@@ -28,7 +28,7 @@ export function CreateNodeForm({
 
   if (!guildUser) return null
 
-  if (!canContribute(guildUser.repPoints)) {
+  if (!canContribute(guildUser.repPoints, guildUser.role)) {
     return (
       <div className="p-4 rounded-lg border border-white/5 bg-void-900">
         <p className="text-sm text-white/40">
@@ -47,6 +47,7 @@ export function CreateNodeForm({
       const result = await createNode({
         authorId: guildUser.uid,
         authorRep: guildUser.repPoints,
+        authorRole: guildUser.role,
         advancementId,
         parentNodeId,
         title,

@@ -8,6 +8,7 @@ import type { GuildUser } from "@/domain/user"
 import type { LibraryEntry } from "@/domain/library-entry"
 import type { EntryVersion } from "@/domain/library-entry"
 import type { PeerReview } from "@/domain/peer-review"
+import { REP_REASONS, type RepEvent, type RepReason } from "@/domain/reputation"
 
 const firestoreTimestamp = z
   .any()
@@ -154,6 +155,7 @@ export function parseNotificationDoc(id: string, data: Record<string, unknown>):
 }
 
 const userBackgroundSchema = z.enum(["researcher", "student", "engineer", "professor", "hobbyist", "other"])
+const userRoleSchema = z.enum(["user", "admin"])
 
 const guildUserDocSchema = z.object({
   email: z.string(),
@@ -168,6 +170,8 @@ const guildUserDocSchema = z.object({
   interests: z.array(z.string()).optional().default([]),
   bio: z.string().optional().default(""),
   photoURL: z.nullable(z.string()).optional().default(null),
+  role: userRoleSchema.optional().default("user"),
+  bannedUntil: optionalFirestoreTimestamp,
 })
 
 export function parseGuildUserDoc(uid: string, data: Record<string, unknown>): GuildUser | null {
@@ -264,4 +268,26 @@ export function parsePeerReviewDoc(id: string, data: Record<string, unknown>): P
     return null
   }
   return { id, ...result.data } satisfies PeerReview
+}
+
+const repReasonSchema = z.enum(REP_REASONS as unknown as [string, ...string[]])
+
+const repEventDocSchema = z.object({
+  userId: z.string(),
+  delta: z.number(),
+  reason: repReasonSchema,
+  sourceId: z.nullable(z.string()),
+  sourceDescription: z.string(),
+  timestamp: firestoreTimestamp,
+  balanceAfter: z.number(),
+})
+
+export function parseRepEventDoc(id: string, data: Record<string, unknown>): RepEvent | null {
+  const result = repEventDocSchema.safeParse(data)
+  if (!result.success) {
+    console.error(`Invalid RepEvent doc ${id}:`, result.error.message)
+    return null
+  }
+  const { reason, ...rest } = result.data
+  return { id, ...rest, reason: reason as RepReason } satisfies RepEvent
 }

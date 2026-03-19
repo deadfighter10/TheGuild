@@ -81,7 +81,7 @@ beforeEach(() => {
 
 describe("vouchForUser", () => {
   it("fails when voucher tries to vouch for themselves", async () => {
-    const result = await vouchForUser("user-1", "user-1", 100)
+    const result = await vouchForUser("user-1", "user-1", 100, "user")
     expect(result).toEqual({ valid: false, reason: "You cannot vouch for yourself" })
   })
 
@@ -90,7 +90,7 @@ describe("vouchForUser", () => {
       .mockResolvedValueOnce({ empty: true, docs: [] } as unknown as MockSnapshot)
       .mockResolvedValueOnce({ empty: true, docs: [] } as unknown as MockSnapshot)
 
-    const result = await vouchForUser("user-1", "user-2", 50)
+    const result = await vouchForUser("user-1", "user-2", 50, "user")
     expect(result).toEqual({
       valid: false,
       reason: "You need at least 100 Rep to vouch for someone",
@@ -113,7 +113,7 @@ describe("vouchForUser", () => {
       data: { displayName: "Alice" },
     }
 
-    const result = await vouchForUser("user-1", "user-2", 100)
+    const result = await vouchForUser("user-1", "user-2", 100, "user")
     expect(result).toEqual({ valid: true })
     expect(mockTransaction.set).toHaveBeenCalled()
     expect(mockTransaction.update).toHaveBeenCalled()

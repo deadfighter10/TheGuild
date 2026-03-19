@@ -22,6 +22,7 @@ describe("validateSubmitNewsLink", () => {
   it("allows a contributor (100+ Rep) to submit a link", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "Breaking news",
       url: "https://example.com/article",
       advancementId: "fusion",
@@ -32,6 +33,7 @@ describe("validateSubmitNewsLink", () => {
   it("rejects an observer (under 100 Rep)", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 99,
+      submitterRole: "user",
       title: "Breaking news",
       url: "https://example.com/article",
       advancementId: "fusion",
@@ -45,6 +47,7 @@ describe("validateSubmitNewsLink", () => {
   it("rejects an empty title", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "",
       url: "https://example.com/article",
       advancementId: "fusion",
@@ -58,6 +61,7 @@ describe("validateSubmitNewsLink", () => {
   it("rejects a whitespace-only title", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "   ",
       url: "https://example.com/article",
       advancementId: "fusion",
@@ -71,6 +75,7 @@ describe("validateSubmitNewsLink", () => {
   it("rejects an empty URL", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "Breaking news",
       url: "",
       advancementId: "fusion",
@@ -84,6 +89,7 @@ describe("validateSubmitNewsLink", () => {
   it("rejects an invalid URL", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "Breaking news",
       url: "not-a-url",
       advancementId: "fusion",
@@ -97,6 +103,7 @@ describe("validateSubmitNewsLink", () => {
   it("accepts http URLs", () => {
     const result = validateSubmitNewsLink({
       submitterRep: 100,
+      submitterRole: "user",
       title: "Article",
       url: "http://example.com/article",
       advancementId: "fusion",
@@ -111,6 +118,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       link,
       existingVote: null,
       newVote: 1,
@@ -123,6 +131,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       link,
       existingVote: null,
       newVote: -1,
@@ -135,6 +144,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 50,
+      userRole: "user",
       link,
       existingVote: null,
       newVote: 1,
@@ -150,6 +160,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       link,
       existingVote: null,
       newVote: 1,
@@ -165,6 +176,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       link,
       existingVote: 1,
       newVote: 1,
@@ -180,6 +192,7 @@ describe("validateVoteNewsLink", () => {
     const result = validateVoteNewsLink({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       link,
       existingVote: 1,
       newVote: -1,

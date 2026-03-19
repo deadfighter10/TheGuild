@@ -27,7 +27,7 @@ export function SubmitLinkForm({
   const [loading, setLoading] = useState(false)
 
   if (!guildUser) return null
-  if (!canContribute(guildUser.repPoints)) return null
+  if (!canContribute(guildUser.repPoints, guildUser.role)) return null
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -38,6 +38,7 @@ export function SubmitLinkForm({
       const result = await submitNewsLink({
         submitterId: guildUser.uid,
         submitterRep: guildUser.repPoints,
+        submitterRole: guildUser.role,
         advancementId,
         title,
         url,

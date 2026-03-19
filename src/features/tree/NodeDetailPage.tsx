@@ -94,7 +94,7 @@ export function NodeDetailPage() {
     if (!guildUser || !nodeId) return
     setSupporting(true)
     try {
-      const result = await supportNode(guildUser.uid, guildUser.repPoints, nodeId)
+      const result = await supportNode(guildUser.uid, guildUser.repPoints, guildUser.role, nodeId)
       if (result.success) {
         setSupported(true)
         toast("Idea supported!", "success")
@@ -114,7 +114,7 @@ export function NodeDetailPage() {
     if (!guildUser) return
     setStatusUpdating(true)
     try {
-      await setNodeStatus(guildUser.repPoints, nodeId!, newStatus)
+      await setNodeStatus(guildUser.repPoints, guildUser.role, nodeId!, newStatus)
       toast(`Status changed to ${newStatus}`, "success")
       reload()
     } catch {
@@ -140,6 +140,7 @@ export function NodeDetailPage() {
       const result = await editNode({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         nodeId,
         title: editTitle,
         description: editDescription,
@@ -191,8 +192,8 @@ export function NodeDetailPage() {
   const advancement = ADVANCEMENTS.find((a) => a.id === advancementId)
   const theme = advancementId ? ADVANCEMENT_THEMES[advancementId] : undefined
   const statusStyle = STATUS_STYLES[node.status]
-  const canUserContribute = guildUser ? canContribute(guildUser.repPoints) : false
-  const canUserModerate = guildUser ? canModerate(guildUser.repPoints) : false
+  const canUserContribute = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
+  const canUserModerate = guildUser ? canModerate(guildUser.repPoints, guildUser.role) : false
   const isOwnNode = guildUser?.uid === node.authorId
   const canEdit = isOwnNode || canUserModerate
 

@@ -1,4 +1,4 @@
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 import { REP_THRESHOLDS } from "./reputation"
 
 export type SpotlightContentType = "node" | "libraryEntry"
@@ -24,6 +24,7 @@ type ValidationResult = ValidationSuccess | ValidationFailure
 
 type NominationRequest = {
   readonly nominatorRep: number
+  readonly nominatorRole: UserRole
   readonly nominatorId: string
   readonly authorId: string
   readonly contentTitle: string
@@ -31,7 +32,7 @@ type NominationRequest = {
 }
 
 export function validateNomination(request: NominationRequest): ValidationResult {
-  if (!isAdmin(request.nominatorRep) && request.nominatorRep < REP_THRESHOLDS.moderatorMin) {
+  if (!isAdmin(request.nominatorRole) && request.nominatorRep < REP_THRESHOLDS.moderatorMin) {
     return { valid: false, reason: "You need at least 3000 Rep to nominate content" }
   }
 
@@ -50,8 +51,8 @@ export function validateNomination(request: NominationRequest): ValidationResult
   return { valid: true }
 }
 
-export function canNominate(rep: number): boolean {
-  return isAdmin(rep) || rep >= REP_THRESHOLDS.moderatorMin
+export function canNominate(rep: number, role: UserRole): boolean {
+  return isAdmin(role) || rep >= REP_THRESHOLDS.moderatorMin
 }
 
 export function spotlightWeekId(date: Date): string {

@@ -40,6 +40,7 @@ function NewThreadForm({ advancementId, onCreated, onCancel }: {
         authorId: guildUser.uid,
         authorName: guildUser.displayName,
         authorRep: guildUser.repPoints,
+        authorRole: guildUser.role,
         advancementId,
         title,
         body,
@@ -187,6 +188,7 @@ function ThreadView({ thread, onBack }: {
         authorId: guildUser.uid,
         authorName: guildUser.displayName,
         authorRep: guildUser.repPoints,
+        authorRole: guildUser.role,
         threadId: thread.id,
         body: replyBody,
       })
@@ -204,9 +206,9 @@ function ThreadView({ thread, onBack }: {
     }
   }
 
-  const canReply = guildUser ? canContribute(guildUser.repPoints) : false
+  const canReply = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
   const isThreadOwner = guildUser?.uid === thread.authorId
-  const isMod = guildUser ? canModerate(guildUser.repPoints) : false
+  const isMod = guildUser ? canModerate(guildUser.repPoints, guildUser.role) : false
   const canEditThread = isThreadOwner || isMod
 
   const handleEditThread = async () => {
@@ -216,6 +218,7 @@ function ThreadView({ thread, onBack }: {
       const result = await editThread({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         threadId: thread.id,
         title: editTitle,
         body: editBody,
@@ -241,6 +244,7 @@ function ThreadView({ thread, onBack }: {
       const result = await deleteThread({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         threadId: thread.id,
       })
       if (result.success) {
@@ -263,6 +267,7 @@ function ThreadView({ thread, onBack }: {
       const result = await editReply({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         replyId,
         body: editReplyBody,
       })
@@ -286,6 +291,7 @@ function ThreadView({ thread, onBack }: {
       const result = await deleteReply({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         replyId,
         threadId: thread.id,
       })
@@ -503,7 +509,7 @@ export function DiscussionForum({ advancementId }: DiscussionForumProps) {
   )
   const { data: threads, loading } = useRealtimeQuery(subscribe)
 
-  const canPost = guildUser ? canContribute(guildUser.repPoints) : false
+  const canPost = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
   const openThread = openThreadId ? threads.find((t) => t.id === openThreadId) : null
 
   if (openThread) {

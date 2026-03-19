@@ -6,6 +6,7 @@ function makeVouchRequest(overrides: Partial<VouchRequest> = {}): VouchRequest {
     voucherId: "user-1",
     voucheeId: "user-2",
     voucherRep: 100,
+    voucherRole: "user",
     voucheeHasBeenVouched: false,
     voucherHasVouchedBefore: false,
     ...overrides,
@@ -52,8 +53,8 @@ describe("validateVouch", () => {
     })
   })
 
-  it("allows an admin (-1 Rep) to vouch", () => {
-    const result = validateVouch(makeVouchRequest({ voucherRep: -1 }))
+  it("allows an admin to vouch regardless of rep", () => {
+    const result = validateVouch(makeVouchRequest({ voucherRep: 0, voucherRole: "admin" }))
     expect(result).toEqual({ valid: true })
   })
 })

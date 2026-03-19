@@ -348,7 +348,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
                 <div className="hidden md:block">
                   <NotificationBell />
                 </div>
-                {isAdmin(guildUser.repPoints) && (
+                {isAdmin(guildUser.role) && (
                   <Link
                     to="/admin"
                     className="hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-md bg-red-500/10 text-red-400/70 hover:text-red-400 border border-red-500/15 hover:border-red-500/30 transition-colors"
@@ -365,7 +365,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
                 >
                   <UserAvatar name={guildUser.displayName} photoURL={guildUser.photoURL} size="xs" />
                   <span className="hidden sm:block text-sm text-white/60 group-hover:text-white/90 transition-colors">
-                    {isAdmin(guildUser.repPoints) ? "Admin" : `${guildUser.repPoints} Rep`}
+                    {isAdmin(guildUser.role) ? "Admin" : `${guildUser.repPoints} Rep`}
                   </span>
                 </Link>
                 <button
@@ -453,7 +453,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
               <div className="border-t border-white/5 mt-4 pt-4 space-y-1">
                 {firebaseUser && guildUser ? (
                   <>
-                    {isAdmin(guildUser.repPoints) && (
+                    {isAdmin(guildUser.role) && (
                       <Link
                         to="/admin"
                         className={`flex items-center gap-2 px-4 py-3 rounded-lg text-base font-medium transition-colors ${
@@ -473,7 +473,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
                           : "text-white/50 hover:text-white hover:bg-white/5"
                       }`}
                     >
-                      Profile ({isAdmin(guildUser.repPoints) ? "Admin" : `${guildUser.repPoints} Rep`})
+                      Profile ({isAdmin(guildUser.role) ? "Admin" : `${guildUser.repPoints} Rep`})
                     </Link>
                     <button
                       onClick={logout}

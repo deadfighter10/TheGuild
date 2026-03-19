@@ -27,6 +27,7 @@ describe("validateCreateLibraryEntry", () => {
   it("allows a user with 1500+ Rep to create an article", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "New entry",
       content: "Some content about fusion",
       contentType: "article",
@@ -39,6 +40,7 @@ describe("validateCreateLibraryEntry", () => {
   it("rejects a user with less than 1500 Rep", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1499,
+      authorRole: "user",
       title: "New entry",
       content: "Some content",
       contentType: "article",
@@ -54,6 +56,7 @@ describe("validateCreateLibraryEntry", () => {
   it("rejects an empty title", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "",
       content: "Some content",
       contentType: "article",
@@ -69,6 +72,7 @@ describe("validateCreateLibraryEntry", () => {
   it("rejects a whitespace-only title", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "   ",
       content: "Some content",
       contentType: "article",
@@ -84,6 +88,7 @@ describe("validateCreateLibraryEntry", () => {
   it("rejects empty content for articles", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "New entry",
       content: "",
       contentType: "article",
@@ -101,6 +106,7 @@ describe("validateCreateLibraryEntry", () => {
     for (const difficulty of difficulties) {
       const result = validateCreateLibraryEntry({
         authorRep: 1500,
+        authorRole: "user",
         title: "Entry",
         content: "Content",
         contentType: "article",
@@ -114,6 +120,7 @@ describe("validateCreateLibraryEntry", () => {
   it("requires a URL for YouTube entries", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Great lecture",
       content: "",
       contentType: "youtube",
@@ -129,6 +136,7 @@ describe("validateCreateLibraryEntry", () => {
   it("validates YouTube URL format", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Great lecture",
       content: "",
       contentType: "youtube",
@@ -145,6 +153,7 @@ describe("validateCreateLibraryEntry", () => {
   it("accepts a valid YouTube URL", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Great lecture",
       content: "",
       contentType: "youtube",
@@ -158,6 +167,7 @@ describe("validateCreateLibraryEntry", () => {
   it("requires a URL for link entries", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Great paper",
       content: "",
       contentType: "link",
@@ -173,6 +183,7 @@ describe("validateCreateLibraryEntry", () => {
   it("accepts a valid external link", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Nature paper",
       content: "Interesting findings",
       contentType: "link",
@@ -186,6 +197,7 @@ describe("validateCreateLibraryEntry", () => {
   it("accepts document with URL", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Research PDF",
       content: "",
       contentType: "document",
@@ -199,6 +211,7 @@ describe("validateCreateLibraryEntry", () => {
   it("accepts document with content but no URL", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Research notes",
       content: "Key findings from the paper...",
       contentType: "document",
@@ -211,6 +224,7 @@ describe("validateCreateLibraryEntry", () => {
   it("rejects document with neither URL nor content", () => {
     const result = validateCreateLibraryEntry({
       authorRep: 1500,
+      authorRole: "user",
       title: "Empty doc",
       content: "",
       contentType: "document",
@@ -230,6 +244,7 @@ describe("validateEditLibraryEntry", () => {
     const result = validateEditLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user",
       entry,
       title: "Updated title",
       content: "Updated content",
@@ -244,6 +259,7 @@ describe("validateEditLibraryEntry", () => {
     const result = validateEditLibraryEntry({
       userId: "user-1",
       userRep: 3000,
+      userRole: "user",
       entry,
       title: "Updated title",
       content: "Updated content",
@@ -258,6 +274,7 @@ describe("validateEditLibraryEntry", () => {
     const result = validateEditLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user",
       entry,
       title: "Updated title",
       content: "Updated content",
@@ -275,6 +292,7 @@ describe("validateEditLibraryEntry", () => {
     const result = validateEditLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user",
       entry,
       title: "",
       content: "Updated content",
@@ -292,6 +310,7 @@ describe("validateEditLibraryEntry", () => {
     const result = validateEditLibraryEntry({
       userId: "user-1",
       userRep: 1500,
+      userRole: "user",
       entry,
       title: "Updated title",
       content: "",

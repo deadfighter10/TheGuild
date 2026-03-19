@@ -119,7 +119,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
     setSupportError("")
 
     try {
-      const result = await supportNode(guildUser.uid, guildUser.repPoints, node.id)
+      const result = await supportNode(guildUser.uid, guildUser.repPoints, guildUser.role, node.id)
       if (result.success) {
         setSupported(true)
         toast("Idea supported!", "success")
@@ -140,7 +140,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
     setStatusUpdating(true)
 
     try {
-      await setNodeStatus(guildUser.repPoints, node.id, newStatus)
+      await setNodeStatus(guildUser.repPoints, guildUser.role, node.id, newStatus)
       toast(`Status changed to ${newStatus}`, "success")
       onRefresh()
     } catch {
@@ -165,6 +165,7 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
       const result = await editNode({
         userId: guildUser.uid,
         userRep: guildUser.repPoints,
+        userRole: guildUser.role,
         nodeId: node.id,
         title: editTitle,
         description: editDescription,
@@ -183,8 +184,8 @@ function NodeCard({ treeNode, depth, color, onRefresh }: NodeCardProps) {
     }
   }
 
-  const canUserContribute = guildUser ? canContribute(guildUser.repPoints) : false
-  const canUserModerate = guildUser ? canModerate(guildUser.repPoints) : false
+  const canUserContribute = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
+  const canUserModerate = guildUser ? canModerate(guildUser.repPoints, guildUser.role) : false
   const isOwnNode = guildUser?.uid === node.authorId
   const canEdit = isOwnNode || canUserModerate
 
@@ -413,7 +414,7 @@ export function TreeView({ advancementId, color }: TreeViewProps) {
     () => sortNodes(filterTree(tree, searchQuery), sortMode),
     [tree, searchQuery, sortMode],
   )
-  const canUserContribute = guildUser ? canContribute(guildUser.repPoints) : false
+  const canUserContribute = guildUser ? canContribute(guildUser.repPoints, guildUser.role) : false
 
   if (loading) {
     return (

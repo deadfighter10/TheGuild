@@ -72,6 +72,7 @@ describe("createThread", () => {
     authorId: "user-1",
     authorName: "Alice",
     authorRep: 200,
+    authorRole: "user" as const,
     advancementId: "adv-1",
     title: "Discussion Topic",
     body: "What do you think?",
@@ -110,6 +111,7 @@ describe("createReply", () => {
     authorId: "user-1",
     authorName: "Alice",
     authorRep: 200,
+    authorRole: "user" as const,
     threadId: "thread-1",
     body: "I agree with this point.",
   }
@@ -187,6 +189,7 @@ describe("editThread", () => {
     const result = await editThread({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       threadId: "thread-1",
       title: "Updated Title",
       body: "Updated Body",
@@ -200,6 +203,7 @@ describe("editThread", () => {
     const result = await editThread({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       threadId: "thread-1",
       title: "Updated",
       body: "Updated",
@@ -214,6 +218,7 @@ describe("editThread", () => {
     const result = await editThread({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       threadId: "thread-1",
       title: "Updated",
       body: "Updated",
@@ -243,6 +248,7 @@ describe("deleteThread", () => {
     const result = await deleteThread({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       threadId: "thread-1",
     })
 
@@ -254,6 +260,7 @@ describe("deleteThread", () => {
     const result = await deleteThread({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       threadId: "thread-1",
     })
 
@@ -278,6 +285,7 @@ describe("deleteReply", () => {
     const result = await deleteReply({
       userId: "user-1",
       userRep: 200,
+      userRole: "user" as const,
       replyId: "reply-1",
       threadId: "thread-1",
     })

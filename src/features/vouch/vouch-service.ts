@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { validateVouch, type VouchValidation } from "@/domain/vouch"
+import type { UserRole } from "@/domain/user"
 import { REP_THRESHOLDS } from "@/domain/reputation"
 import { createNotification } from "@/features/notifications/notification-service"
 import { formatNotificationMessage, notificationLink } from "@/domain/notification"
@@ -17,6 +18,7 @@ export async function vouchForUser(
   voucherId: string,
   voucheeId: string,
   voucherRep: number,
+  voucherRole: UserRole,
 ): Promise<VouchValidation> {
   const vouchesRef = collection(db, "vouches")
 
@@ -29,6 +31,7 @@ export async function vouchForUser(
     voucherId,
     voucheeId,
     voucherRep,
+    voucherRole,
     voucheeHasBeenVouched: !voucheeVouches.empty,
     voucherHasVouchedBefore: !voucherVouches.empty,
   })

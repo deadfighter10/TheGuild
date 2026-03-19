@@ -60,7 +60,7 @@ export function OnrampBanner({ context, advancementName }: OnrampBannerProps) {
     )
   }
 
-  if (guildUser && isAdmin(guildUser.repPoints)) return null
+  if (guildUser && isAdmin(guildUser.role)) return null
 
   if (guildUser && guildUser.repPoints < 100) {
     return (

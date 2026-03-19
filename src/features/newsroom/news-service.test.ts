@@ -67,6 +67,7 @@ describe("submitNewsLink", () => {
   const validParams = {
     submitterId: "user-1",
     submitterRep: 200,
+    submitterRole: "user" as const,
     advancementId: "adv-1",
     title: "Cool Research Paper",
     url: "https://example.com/paper",
@@ -120,7 +121,7 @@ describe("voteNewsLink", () => {
   it("allows an upvote on a link", async () => {
     setupLink()
 
-    const result = await voteNewsLink("user-1", 200, "link-1", 1)
+    const result = await voteNewsLink("user-1", 200, "user", "link-1", 1)
 
     expect(result).toEqual({ success: true })
     expect(setDoc).toHaveBeenCalled()
@@ -130,13 +131,13 @@ describe("voteNewsLink", () => {
   it("allows a downvote on a link", async () => {
     setupLink()
 
-    const result = await voteNewsLink("user-1", 200, "link-1", -1)
+    const result = await voteNewsLink("user-1", 200, "user", "link-1", -1)
 
     expect(result).toEqual({ success: true })
   })
 
   it("rejects when link does not exist", async () => {
-    const result = await voteNewsLink("user-1", 200, "link-1", 1)
+    const result = await voteNewsLink("user-1", 200, "user", "link-1", 1)
 
     expect(result).toEqual({ success: false, reason: "Link not found" })
     expect(setDoc).not.toHaveBeenCalled()
@@ -145,7 +146,7 @@ describe("voteNewsLink", () => {
   it("rejects when user votes on own link", async () => {
     setupLink({ submitterId: "user-1" })
 
-    const result = await voteNewsLink("user-1", 200, "link-1", 1)
+    const result = await voteNewsLink("user-1", 200, "user", "link-1", 1)
 
     expect(result).toEqual({ success: false, reason: expect.any(String) })
   })

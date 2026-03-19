@@ -17,6 +17,7 @@ describe("validateSubmitForReview", () => {
       authorId: "user-1",
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       contentTitle: "My Idea",
       hasExistingReview: false,
     })
@@ -28,6 +29,7 @@ describe("validateSubmitForReview", () => {
       authorId: "user-1",
       userId: "user-2",
       userRep: 100,
+      userRole: "user",
       contentTitle: "Someone Else's Idea",
       hasExistingReview: false,
     })
@@ -39,6 +41,7 @@ describe("validateSubmitForReview", () => {
       authorId: "user-1",
       userId: "user-1",
       userRep: 50,
+      userRole: "user",
       contentTitle: "My Idea",
       hasExistingReview: false,
     })
@@ -49,7 +52,8 @@ describe("validateSubmitForReview", () => {
     const result = validateSubmitForReview({
       authorId: "user-1",
       userId: "user-1",
-      userRep: -1,
+      userRep: 0,
+      userRole: "admin",
       contentTitle: "My Idea",
       hasExistingReview: false,
     })
@@ -61,6 +65,7 @@ describe("validateSubmitForReview", () => {
       authorId: "user-1",
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       contentTitle: "My Idea",
       hasExistingReview: true,
     })
@@ -72,6 +77,7 @@ describe("validateSubmitForReview", () => {
       authorId: "user-1",
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       contentTitle: "  ",
       hasExistingReview: false,
     })
@@ -84,6 +90,7 @@ describe("validateClaimReview", () => {
     const result = validateClaimReview({
       reviewerId: "mod-1",
       reviewerRep: 3000,
+      reviewerRole: "user",
       authorId: "user-1",
       currentStatus: "pending",
     })
@@ -94,6 +101,7 @@ describe("validateClaimReview", () => {
     const result = validateClaimReview({
       reviewerId: "user-1",
       reviewerRep: 3000,
+      reviewerRole: "user",
       authorId: "user-1",
       currentStatus: "pending",
     })
@@ -104,6 +112,7 @@ describe("validateClaimReview", () => {
     const result = validateClaimReview({
       reviewerId: "user-2",
       reviewerRep: 2999,
+      reviewerRole: "user",
       authorId: "user-1",
       currentStatus: "pending",
     })
@@ -113,7 +122,8 @@ describe("validateClaimReview", () => {
   it("allows admin regardless of rep", () => {
     const result = validateClaimReview({
       reviewerId: "admin-1",
-      reviewerRep: -1,
+      reviewerRep: 0,
+      reviewerRole: "admin",
       authorId: "user-1",
       currentStatus: "pending",
     })
@@ -124,6 +134,7 @@ describe("validateClaimReview", () => {
     const result = validateClaimReview({
       reviewerId: "mod-1",
       reviewerRep: 3000,
+      reviewerRole: "user",
       authorId: "user-1",
       currentStatus: "in_review",
     })
@@ -136,6 +147,7 @@ describe("validateClaimReview", () => {
       const result = validateClaimReview({
         reviewerId: "mod-1",
         reviewerRep: 3000,
+        reviewerRole: "user",
         authorId: "user-1",
         currentStatus: status,
       })
@@ -246,37 +258,37 @@ describe("validateSubmitFeedback", () => {
 
 describe("canSubmitForReview", () => {
   it("returns true for contributors", () => {
-    expect(canSubmitForReview(100)).toBe(true)
-    expect(canSubmitForReview(500)).toBe(true)
+    expect(canSubmitForReview(100, "user")).toBe(true)
+    expect(canSubmitForReview(500, "user")).toBe(true)
   })
 
-  it("returns true for admin", () => {
-    expect(canSubmitForReview(-1)).toBe(true)
+  it("returns true for admin regardless of rep", () => {
+    expect(canSubmitForReview(0, "admin")).toBe(true)
   })
 
   it("returns false for observers", () => {
-    expect(canSubmitForReview(0)).toBe(false)
-    expect(canSubmitForReview(99)).toBe(false)
+    expect(canSubmitForReview(0, "user")).toBe(false)
+    expect(canSubmitForReview(99, "user")).toBe(false)
   })
 })
 
 describe("canReviewContent", () => {
   it("returns true for moderators", () => {
-    expect(canReviewContent(3000)).toBe(true)
-    expect(canReviewContent(5000)).toBe(true)
+    expect(canReviewContent(3000, "user")).toBe(true)
+    expect(canReviewContent(5000, "user")).toBe(true)
   })
 
-  it("returns true for admin", () => {
-    expect(canReviewContent(-1)).toBe(true)
+  it("returns true for admin regardless of rep", () => {
+    expect(canReviewContent(0, "admin")).toBe(true)
   })
 
   it("returns false for regular contributors", () => {
-    expect(canReviewContent(100)).toBe(false)
-    expect(canReviewContent(2999)).toBe(false)
+    expect(canReviewContent(100, "user")).toBe(false)
+    expect(canReviewContent(2999, "user")).toBe(false)
   })
 
   it("returns false for observers", () => {
-    expect(canReviewContent(0)).toBe(false)
+    expect(canReviewContent(0, "user")).toBe(false)
   })
 })
 

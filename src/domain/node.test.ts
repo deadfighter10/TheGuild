@@ -27,6 +27,7 @@ describe("validateCreateNode", () => {
   it("allows a contributor (100+ Rep) to create a root node", () => {
     const result = validateCreateNode({
       authorRep: 100,
+      authorRole: "user",
       title: "New idea",
       description: "A fresh approach",
       advancementId: "fusion",
@@ -35,9 +36,10 @@ describe("validateCreateNode", () => {
     expect(result).toEqual({ valid: true })
   })
 
-  it("allows an admin (-1 Rep) to create a node", () => {
+  it("allows an admin to create a node regardless of rep", () => {
     const result = validateCreateNode({
-      authorRep: -1,
+      authorRep: 0,
+      authorRole: "admin",
       title: "Admin idea",
       description: "Created by admin",
       advancementId: "fusion",
@@ -49,6 +51,7 @@ describe("validateCreateNode", () => {
   it("rejects an observer (under 100 Rep)", () => {
     const result = validateCreateNode({
       authorRep: 99,
+      authorRole: "user",
       title: "New idea",
       description: "A fresh approach",
       advancementId: "fusion",
@@ -63,6 +66,7 @@ describe("validateCreateNode", () => {
   it("rejects an empty title", () => {
     const result = validateCreateNode({
       authorRep: 100,
+      authorRole: "user",
       title: "",
       description: "A fresh approach",
       advancementId: "fusion",
@@ -77,6 +81,7 @@ describe("validateCreateNode", () => {
   it("rejects a title that is only whitespace", () => {
     const result = validateCreateNode({
       authorRep: 100,
+      authorRole: "user",
       title: "   ",
       description: "A fresh approach",
       advancementId: "fusion",
@@ -91,6 +96,7 @@ describe("validateCreateNode", () => {
   it("rejects an empty description", () => {
     const result = validateCreateNode({
       authorRep: 100,
+      authorRole: "user",
       title: "New idea",
       description: "",
       advancementId: "fusion",
@@ -105,6 +111,7 @@ describe("validateCreateNode", () => {
   it("allows creating a subnode with a parent", () => {
     const result = validateCreateNode({
       authorRep: 100,
+      authorRole: "user",
       title: "Sub-idea",
       description: "Builds on the parent",
       advancementId: "fusion",
@@ -120,17 +127,19 @@ describe("validateSupportNode", () => {
     const result = validateSupportNode({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       node,
       alreadySupported: false,
     })
     expect(result).toEqual({ valid: true })
   })
 
-  it("allows an admin (-1 Rep) to support a node", () => {
+  it("allows an admin to support a node regardless of rep", () => {
     const node = makeNode({ authorId: "user-2" })
     const result = validateSupportNode({
       userId: "user-1",
-      userRep: -1,
+      userRep: 0,
+      userRole: "admin",
       node,
       alreadySupported: false,
     })
@@ -142,6 +151,7 @@ describe("validateSupportNode", () => {
     const result = validateSupportNode({
       userId: "user-1",
       userRep: 50,
+      userRole: "user",
       node,
       alreadySupported: false,
     })
@@ -156,6 +166,7 @@ describe("validateSupportNode", () => {
     const result = validateSupportNode({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       node,
       alreadySupported: false,
     })
@@ -170,6 +181,7 @@ describe("validateSupportNode", () => {
     const result = validateSupportNode({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       node,
       alreadySupported: true,
     })
@@ -184,6 +196,7 @@ describe("validateSupportNode", () => {
     const result = validateSupportNode({
       userId: "user-1",
       userRep: 100,
+      userRole: "user",
       node,
       alreadySupported: false,
     })
@@ -198,6 +211,7 @@ describe("validateSetNodeStatus", () => {
   it("allows a moderator to set a node to proven", () => {
     const result = validateSetNodeStatus({
       moderatorRep: 3000,
+      moderatorRole: "user",
       newStatus: "proven",
     })
     expect(result).toEqual({ valid: true })
@@ -206,6 +220,7 @@ describe("validateSetNodeStatus", () => {
   it("allows a moderator to set a node to disproved", () => {
     const result = validateSetNodeStatus({
       moderatorRep: 3000,
+      moderatorRole: "user",
       newStatus: "disproved",
     })
     expect(result).toEqual({ valid: true })
@@ -214,14 +229,16 @@ describe("validateSetNodeStatus", () => {
   it("allows a moderator to revert a node to theoretical", () => {
     const result = validateSetNodeStatus({
       moderatorRep: 3000,
+      moderatorRole: "user",
       newStatus: "theoretical",
     })
     expect(result).toEqual({ valid: true })
   })
 
-  it("allows an admin (-1 Rep) to set node status", () => {
+  it("allows an admin to set node status regardless of rep", () => {
     const result = validateSetNodeStatus({
-      moderatorRep: -1,
+      moderatorRep: 0,
+      moderatorRole: "admin",
       newStatus: "proven",
     })
     expect(result).toEqual({ valid: true })
@@ -230,6 +247,7 @@ describe("validateSetNodeStatus", () => {
   it("rejects a non-moderator", () => {
     const result = validateSetNodeStatus({
       moderatorRep: 2999,
+      moderatorRole: "user",
       newStatus: "proven",
     })
     expect(result).toEqual({

@@ -1,17 +1,25 @@
 import { describe, it, expect } from "vitest"
-import { getRepTier, isAdmin } from "./user"
+import { getRepTier, isAdmin, type UserRole } from "./user"
 
 describe("isAdmin", () => {
-  it("returns true for -1 Rep", () => {
-    expect(isAdmin(-1)).toBe(true)
+  it("returns true for admin role", () => {
+    expect(isAdmin("admin")).toBe(true)
   })
 
-  it("returns false for 0 Rep", () => {
-    expect(isAdmin(0)).toBe(false)
+  it("returns false for user role", () => {
+    expect(isAdmin("user")).toBe(false)
+  })
+})
+
+describe("UserRole", () => {
+  it("accepts admin as a valid role", () => {
+    const role: UserRole = "admin"
+    expect(role).toBe("admin")
   })
 
-  it("returns false for positive Rep", () => {
-    expect(isAdmin(3000)).toBe(false)
+  it("accepts user as a valid role", () => {
+    const role: UserRole = "user"
+    expect(role).toBe("user")
   })
 })
 
@@ -38,9 +46,5 @@ describe("getRepTier", () => {
 
   it("returns moderator for 10000 Rep", () => {
     expect(getRepTier(10000)).toBe("moderator")
-  })
-
-  it("returns moderator for admin (-1 Rep)", () => {
-    expect(getRepTier(-1)).toBe("moderator")
   })
 })

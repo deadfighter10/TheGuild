@@ -1,5 +1,5 @@
 import { REP_THRESHOLDS } from "./reputation"
-import { isAdmin } from "./user"
+import { isAdmin, type UserRole } from "./user"
 
 export type DiscussionThread = {
   readonly id: string
@@ -28,17 +28,19 @@ type ValidationResult = ValidationSuccess | ValidationFailure
 
 type CreateThreadRequest = {
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly title: string
   readonly body: string
 }
 
 type CreateReplyRequest = {
   readonly authorRep: number
+  readonly authorRole: UserRole
   readonly body: string
 }
 
 export function validateCreateThread(request: CreateThreadRequest): ValidationResult {
-  if (!isAdmin(request.authorRep) && request.authorRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.authorRole) && request.authorRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to start a discussion" }
   }
 
@@ -60,6 +62,7 @@ export function validateCreateThread(request: CreateThreadRequest): ValidationRe
 type EditThreadRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly thread: DiscussionThread
   readonly title: string
   readonly body: string
@@ -68,6 +71,7 @@ type EditThreadRequest = {
 type EditReplyRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly reply: DiscussionReply
   readonly body: string
 }
@@ -75,21 +79,23 @@ type EditReplyRequest = {
 type DeleteThreadRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly thread: DiscussionThread
 }
 
 type DeleteReplyRequest = {
   readonly userId: string
   readonly userRep: number
+  readonly userRole: UserRole
   readonly reply: DiscussionReply
 }
 
-function canEditOrDelete(userId: string, userRep: number, authorId: string): boolean {
-  return isAdmin(userRep) || userId === authorId || userRep >= REP_THRESHOLDS.moderatorMin
+function canEditOrDelete(userId: string, userRole: UserRole, userRep: number, authorId: string): boolean {
+  return isAdmin(userRole) || userId === authorId || userRep >= REP_THRESHOLDS.moderatorMin
 }
 
 export function validateEditThread(request: EditThreadRequest): ValidationResult {
-  if (!canEditOrDelete(request.userId, request.userRep, request.thread.authorId)) {
+  if (!canEditOrDelete(request.userId, request.userRole, request.userRep, request.thread.authorId)) {
     return { valid: false, reason: "Only the author or a moderator can edit this thread" }
   }
 
@@ -109,7 +115,7 @@ export function validateEditThread(request: EditThreadRequest): ValidationResult
 }
 
 export function validateEditReply(request: EditReplyRequest): ValidationResult {
-  if (!canEditOrDelete(request.userId, request.userRep, request.reply.authorId)) {
+  if (!canEditOrDelete(request.userId, request.userRole, request.userRep, request.reply.authorId)) {
     return { valid: false, reason: "Only the author or a moderator can edit this reply" }
   }
 
@@ -121,7 +127,7 @@ export function validateEditReply(request: EditReplyRequest): ValidationResult {
 }
 
 export function validateDeleteThread(request: DeleteThreadRequest): ValidationResult {
-  if (!canEditOrDelete(request.userId, request.userRep, request.thread.authorId)) {
+  if (!canEditOrDelete(request.userId, request.userRole, request.userRep, request.thread.authorId)) {
     return { valid: false, reason: "Only the author or a moderator can delete this thread" }
   }
 
@@ -129,7 +135,7 @@ export function validateDeleteThread(request: DeleteThreadRequest): ValidationRe
 }
 
 export function validateDeleteReply(request: DeleteReplyRequest): ValidationResult {
-  if (!canEditOrDelete(request.userId, request.userRep, request.reply.authorId)) {
+  if (!canEditOrDelete(request.userId, request.userRole, request.userRep, request.reply.authorId)) {
     return { valid: false, reason: "Only the author or a moderator can delete this reply" }
   }
 
@@ -137,7 +143,7 @@ export function validateDeleteReply(request: DeleteReplyRequest): ValidationResu
 }
 
 export function validateCreateReply(request: CreateReplyRequest): ValidationResult {
-  if (!isAdmin(request.authorRep) && request.authorRep < REP_THRESHOLDS.contributorMin) {
+  if (!isAdmin(request.authorRole) && request.authorRep < REP_THRESHOLDS.contributorMin) {
     return { valid: false, reason: "You need at least 100 Rep to reply" }
   }
 
