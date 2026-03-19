@@ -12,16 +12,26 @@ const SCHOOL_EMAIL_BONUS = 100;
 
 async function assertAdmin(callerUid: string): Promise<void> {
   const claims = (await auth.getUser(callerUid)).customClaims;
-  if (!claims || claims["admin"] !== true) {
-    // Fallback: check legacy repPoints === -1 for migration
-    const userDoc = await db.doc(`users/${callerUid}`).get();
-    const data = userDoc.data();
-    if (!data || data["repPoints"] !== -1) {
-      throw new HttpsError("permission-denied", "Admin access required");
-    }
-    // Migrate legacy admin to custom claims
-    await auth.setCustomUserClaims(callerUid, { admin: true });
+  if (claims && claims["admin"] === true) return;
+
+  const userDoc = await db.doc(`users/${callerUid}`).get();
+  const data = userDoc.data();
+  if (!data) {
+    throw new HttpsError("permission-denied", "Admin access required");
   }
+
+  if (data["role"] === "admin") {
+    await auth.setCustomUserClaims(callerUid, { admin: true });
+    return;
+  }
+
+  if (data["repPoints"] === -1) {
+    await auth.setCustomUserClaims(callerUid, { admin: true });
+    await db.doc(`users/${callerUid}`).update({ role: "admin", repPoints: 0 });
+    return;
+  }
+
+  throw new HttpsError("permission-denied", "Admin access required");
 }
 
 // S5: Claim school email verification bonus
@@ -88,11 +98,7 @@ export const setAdminClaim = onCall(async (request) => {
   }
 
   await auth.setCustomUserClaims(targetUid, { admin: isAdmin });
-
-  // Update the repPoints to match (-1 for admin, 0 for non-admin)
-  if (isAdmin) {
-    await db.doc(`users/${targetUid}`).update({ repPoints: -1 });
-  }
+  await db.doc(`users/${targetUid}`).update({ role: isAdmin ? "admin" : "user" });
 
   return { success: true };
 });

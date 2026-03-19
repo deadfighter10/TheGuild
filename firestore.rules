@@ -8,9 +8,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.repPoints;
     }
 
-    // S3: Admin check uses custom claims (primary) with repPoints -1 fallback (migration)
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Admin check: custom claims (primary), role field, or legacy repPoints -1 fallback
     function isAdminUser() {
-      return request.auth.token.admin == true || getUserRep() == -1;
+      return request.auth.token.admin == true || getUserRole() == "admin" || getUserRep() == -1;
     }
 
     function isContributor() {
@@ -34,10 +38,11 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.displayName.size() <= 50
         && (!('bio' in request.resource.data) || request.resource.data.bio.size() <= 500)
-        // Prevent users from changing their own rep, emailVerified, or isSchoolEmail
+        // Prevent users from changing their own rep, role, emailVerified, or isSchoolEmail
         && request.resource.data.repPoints == resource.data.repPoints
         && request.resource.data.emailVerified == resource.data.emailVerified
-        && request.resource.data.isSchoolEmail == resource.data.isSchoolEmail;
+        && request.resource.data.isSchoolEmail == resource.data.isSchoolEmail
+        && request.resource.data.role == resource.data.role;
       // Delete only via Cloud Functions (Admin SDK bypasses rules)
       allow delete: if false;
 
