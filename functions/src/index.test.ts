@@ -84,7 +84,7 @@ import * as functions from "./index";
 type CallableFn = (request: unknown) => Promise<unknown>;
 
 function getFunction(name: string): CallableFn {
-  return (functions as Record<string, CallableFn>)[name];
+  return (functions as unknown as Record<string, CallableFn>)[name];
 }
 
 function expectHttpsError(error: unknown, code: string) {
