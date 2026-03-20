@@ -157,6 +157,14 @@ export function parseNotificationDoc(id: string, data: Record<string, unknown>):
 const userBackgroundSchema = z.enum(["researcher", "student", "engineer", "professor", "hobbyist", "other"])
 const userRoleSchema = z.enum(["user", "admin"])
 
+const digestPeriodSchema = z.enum(["daily", "weekly"])
+
+const digestPreferencesSchema = z.object({
+  enabled: z.boolean(),
+  period: digestPeriodSchema,
+  lastSentAt: optionalFirestoreTimestamp,
+})
+
 const guildUserDocSchema = z.object({
   email: z.string(),
   displayName: z.string(),
@@ -172,6 +180,7 @@ const guildUserDocSchema = z.object({
   photoURL: z.nullable(z.string()).optional().default(null),
   role: userRoleSchema.optional().default("user"),
   bannedUntil: optionalFirestoreTimestamp,
+  digestPreferences: digestPreferencesSchema.optional().default({ enabled: false, period: "daily", lastSentAt: null }),
 })
 
 export function parseGuildUserDoc(uid: string, data: Record<string, unknown>): GuildUser | null {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
 import {
@@ -7,6 +7,7 @@ import {
   markAsRead,
   markAllAsRead,
 } from "./notification-service"
+import { requestNotificationPermission, onForegroundMessage } from "@/lib/messaging"
 import type { Notification } from "@/domain/notification"
 import { timeAgo } from "@/shared/utils/time"
 
@@ -26,6 +27,9 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<readonly Notification[]>([])
   const [loading, setLoading] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
+  const [pushMessage, setPushMessage] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,6 +55,41 @@ export function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [open])
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPushEnabled(Notification.permission === "granted")
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pushEnabled) return
+    const unsubscribe = onForegroundMessage(() => {
+      if (!guildUser) return
+      getNotifications(guildUser.uid).then(setNotifications)
+    })
+    return unsubscribe
+  }, [pushEnabled, guildUser])
+
+  const handleEnablePush = useCallback(async () => {
+    if (!guildUser) return
+    setPushLoading(true)
+    setPushMessage(null)
+    try {
+      const token = await requestNotificationPermission(guildUser.uid)
+      if (token) {
+        setPushEnabled(true)
+        setPushMessage("Push notifications enabled")
+      } else {
+        setPushMessage("Permission denied or not supported")
+      }
+    } catch {
+      setPushMessage("Failed to enable push notifications")
+    } finally {
+      setPushLoading(false)
+      setTimeout(() => setPushMessage(null), 3000)
+    }
+  }, [guildUser])
 
   if (!guildUser) return null
 
@@ -97,15 +136,32 @@ export function NotificationBell() {
             <h3 className="text-xs font-mono uppercase tracking-widest text-white/40">
               Notifications
             </h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors"
-              >
-                Mark all read
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {!pushEnabled && (
+                <button
+                  onClick={handleEnablePush}
+                  disabled={pushLoading}
+                  className="text-[10px] text-amber-400/60 hover:text-amber-400 transition-colors disabled:opacity-40"
+                  aria-label="Enable push notifications"
+                >
+                  {pushLoading ? "Enabling..." : "Enable push"}
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
+          {pushMessage && (
+            <div className="px-4 py-2 text-[10px] text-center text-white/50 border-b border-white/[0.06] bg-white/[0.02]">
+              {pushMessage}
+            </div>
+          )}
 
           {loading ? (
             <div className="px-4 py-8 text-center text-xs text-white/30">Loading...</div>

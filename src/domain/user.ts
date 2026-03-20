@@ -1,4 +1,5 @@
 import type { UserBackground } from "./onboarding"
+import type { DigestPreferences } from "./email-digest"
 
 export type UserRole = "user" | "admin"
 
@@ -18,6 +19,7 @@ export type GuildUser = {
   readonly photoURL: string | null
   readonly role: UserRole
   readonly bannedUntil: Date | null
+  readonly digestPreferences: DigestPreferences
 }
 
 export type RepTier = "observer" | "contributor" | "moderator"

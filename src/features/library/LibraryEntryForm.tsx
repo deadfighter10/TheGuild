@@ -3,8 +3,10 @@ import { useAuth } from "@/features/auth/AuthContext"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { createLibraryEntry, editLibraryEntry } from "./library-service"
 import type { LibraryEntry, Difficulty, ContentType } from "@/domain/library-entry"
+import type { PaperMetadata } from "@/domain/paper-import"
 import { useToast } from "@/shared/components/Toast"
 import { MarkdownToolbar } from "@/shared/components/MarkdownToolbar"
+import { PaperImportField } from "./PaperImportField"
 
 type LibraryEntryFormProps = {
   readonly existingEntry?: LibraryEntry
@@ -49,6 +51,21 @@ export function LibraryEntryForm({
   if (!guildUser) return null
 
   const isEditing = !!existingEntry
+
+  const handlePaperImport = (metadata: PaperMetadata) => {
+    setTitle(metadata.title)
+    setUrl(metadata.url)
+    setContentType("document")
+    if (metadata.abstract) {
+      const authorsLine = metadata.authors.length > 0
+        ? `**Authors:** ${metadata.authors.join(", ")}\n\n`
+        : ""
+      const yearLine = metadata.year ? `**Year:** ${metadata.year}\n\n` : ""
+      setContent(`${authorsLine}${yearLine}**Abstract:**\n\n${metadata.abstract}`)
+    }
+    setDifficulty("advanced")
+    toast("Paper metadata imported — review and publish", "success")
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -127,6 +144,10 @@ export function LibraryEntryForm({
             ))}
           </div>
         </div>
+      )}
+
+      {!isEditing && (
+        <PaperImportField onImport={handlePaperImport} />
       )}
 
       <div>

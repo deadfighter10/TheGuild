@@ -240,6 +240,7 @@ describe("parseGuildUserDoc", () => {
       photoURL: "https://example.com/photo.jpg",
       role: "user",
       bannedUntil: null,
+      digestPreferences: { enabled: false, period: "daily", lastSentAt: null },
     })
   })
 

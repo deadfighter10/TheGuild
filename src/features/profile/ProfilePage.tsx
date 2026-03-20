@@ -14,6 +14,7 @@ import { UserAvatar } from "@/shared/components/UserAvatar"
 import { EditProfileForm } from "./EditProfileForm"
 import { ContributionsSection } from "./ContributionsSection"
 import { BookmarksSection } from "./BookmarksSection"
+import { DigestPreferences } from "./DigestPreferences"
 
 const TIER_LABELS = {
   observer: "Observer",
@@ -274,6 +275,10 @@ export function ProfilePage() {
             )
           })}
         </div>
+      </div>
+
+      <div className="mt-8">
+        <DigestPreferences />
       </div>
 
       <SecuritySection />

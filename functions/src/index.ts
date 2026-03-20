@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 
 initializeApp();
 
@@ -301,4 +302,117 @@ export const deleteUserAccount = onCall(async (request) => {
   await db.doc(`users/${targetUid}`).delete();
 
   return { success: true };
+});
+
+// Email digest: update user preferences
+export const updateDigestPreferences = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+
+  const enabled = request.data?.enabled as boolean | undefined;
+  const period = request.data?.period as string | undefined;
+
+  if (typeof enabled !== "boolean") {
+    throw new HttpsError("invalid-argument", "enabled must be a boolean");
+  }
+  if (period !== "daily" && period !== "weekly") {
+    throw new HttpsError("invalid-argument", "period must be 'daily' or 'weekly'");
+  }
+
+  const userRef = db.doc(`users/${request.auth.uid}`);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new HttpsError("not-found", "User profile not found");
+  }
+
+  const existing = userDoc.data()?.digestPreferences;
+  const lastSentAt = existing?.lastSentAt ?? null;
+
+  await userRef.update({
+    digestPreferences: { enabled, period, lastSentAt },
+  });
+
+  return { success: true };
+});
+
+// Email digest: scheduled job to send digest emails
+// Runs daily at 08:00 UTC. Weekly digests are skipped if < 7 days elapsed.
+export const sendDigestEmails = onSchedule("every day 08:00", async () => {
+  const DAILY_MS = 24 * 60 * 60 * 1000;
+  const WEEKLY_MS = 7 * DAILY_MS;
+  const now = new Date();
+
+  // 1. Query all users with digest enabled
+  const usersSnapshot = await db
+    .collection("users")
+    .where("digestPreferences.enabled", "==", true)
+    .get();
+
+  for (const userDoc of usersSnapshot.docs) {
+    const userData = userDoc.data();
+    const prefs = userData.digestPreferences;
+    if (!prefs || !prefs.enabled) continue;
+
+    // 2. Check if enough time has elapsed
+    const lastSentAt = prefs.lastSentAt?.toDate?.() ?? null;
+    const intervalMs = prefs.period === "weekly" ? WEEKLY_MS : DAILY_MS;
+
+    if (lastSentAt !== null) {
+      const elapsed = now.getTime() - lastSentAt.getTime();
+      if (elapsed < intervalMs) continue;
+    }
+
+    // 3. Query recent content in user's followed advancements
+    const interests: string[] = userData.interests ?? [];
+    if (interests.length === 0) continue;
+
+    const sinceDate = lastSentAt ?? new Date(now.getTime() - intervalMs);
+    const sinceTimestamp = Timestamp.fromDate(sinceDate);
+
+    const contentQueries = [
+      { collection: "nodes", type: "idea" as const, advField: "advancementId" },
+      { collection: "libraryEntries", type: "library" as const, advField: "advancementId" },
+      { collection: "discussionThreads", type: "thread" as const, advField: "advancementId" },
+      { collection: "newsLinks", type: "link" as const, advField: "advancementId" },
+    ];
+
+    const entries: Array<{ title: string; type: string; advancementId: string; createdAt: Date; url: string }> = [];
+
+    for (const query of contentQueries) {
+      const snapshot = await db
+        .collection(query.collection)
+        .where(query.advField, "in", interests)
+        .where("createdAt", ">", sinceTimestamp)
+        .orderBy("createdAt", "desc")
+        .limit(50)
+        .get();
+
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        entries.push({
+          title: data.title ?? "Untitled",
+          type: query.type,
+          advancementId: data[query.advField],
+          createdAt: data.createdAt?.toDate?.() ?? now,
+          url: `/${query.collection}/${doc.id}`,
+        });
+      }
+    }
+
+    if (entries.length === 0) continue;
+
+    // 4. Format and send email
+    // TODO: Integrate with SendGrid or Resend for actual email delivery.
+    // For now, log the digest that would be sent.
+    const userName = userData.displayName ?? "Guild Member";
+    console.log(
+      `[Digest] Would send ${entries.length} entries to ${userData.email} (${userName}), period: ${prefs.period}`
+    );
+
+    // 5. Update lastSentAt
+    await db.doc(`users/${userDoc.id}`).update({
+      "digestPreferences.lastSentAt": Timestamp.fromDate(now),
+    });
+  }
 });

@@ -118,6 +118,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       photoURL: null,
       role: "user" as const,
       bannedUntil: null,
+      digestPreferences: { enabled: false, period: "daily" as const, lastSentAt: null },
     }
 
     try {

@@ -676,7 +676,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Sprint 3: Collaboration | COMPLETE — 5 features, 74 tests |
 | Platform Analytics | COMPLETE — anonymous + auth tracking, admin dashboard |
 | Security Hardening | COMPLETE |
-| **Sprint 4: Platform Maturity** | **IN PROGRESS** — OG meta + ShareButton done, T2 component splits in progress |
+| Sprint 4: Platform Maturity | COMPLETE — OG meta, ShareButton, T2 component splits, PWA + FCM, Email Digest, Research Paper Import |
 | **Sprint 5: Production Stabilization** | **NEXT** — E2E tests, data integrity, error resilience, security regression, build safety, monitoring |
 | Backlog (P3) | 9 items across 4 categories |
 | Future Phases (6–13) | 8 phases planned |
