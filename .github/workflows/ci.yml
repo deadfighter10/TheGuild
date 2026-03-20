@@ -57,6 +57,10 @@ jobs:
             exit 1
           fi
 
+      - name: Lighthouse CI
+        run: npx @lhci/cli autorun
+        continue-on-error: true
+
       - name: Upload build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v4

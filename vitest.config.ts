@@ -13,6 +13,6 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
-    exclude: ["**/firestore-rules.test.ts", "**/auth-bypass.test.ts", "**/node_modules/**", "**/functions/**"],
+    exclude: ["**/firestore-rules.test.ts", "**/auth-bypass.test.ts", "**/node_modules/**", "**/functions/**", "**/e2e/**"],
   },
 })

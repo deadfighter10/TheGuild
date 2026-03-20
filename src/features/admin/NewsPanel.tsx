@@ -5,6 +5,7 @@ import { getAllNewsLinks, deleteNewsLink } from "./admin-service"
 import { logAuditEvent } from "./audit-service"
 import { timeAgo } from "@/shared/utils/time"
 import { ConfirmButton } from "./ConfirmButton"
+import { useToast } from "@/shared/components/Toast"
 import type { ActorInfo } from "./UsersPanel"
 
 function advancementLabel(id: string): string {
@@ -20,18 +21,24 @@ export function NewsPanel({ actor }: { readonly actor: ActorInfo }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
+  const { toast } = useToast()
+
   const load = useCallback(() => {
     setLoading(true)
-    getAllNewsLinks().then(setLinks).finally(() => setLoading(false))
-  }, [])
+    getAllNewsLinks().then(setLinks).catch(() => toast("Failed to load news links", "error")).finally(() => setLoading(false))
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
-    const link = links.find((l) => l.id === id)
-    await deleteNewsLink(id)
-    await logAuditEvent({ ...actor, action: "delete_news_link", targetCollection: "newsLinks", targetId: id, details: `Deleted link "${link?.title ?? id}"` })
-    load()
+    try {
+      const link = links.find((l) => l.id === id)
+      await deleteNewsLink(id)
+      await logAuditEvent({ ...actor, action: "delete_news_link", targetCollection: "newsLinks", targetId: id, details: `Deleted link "${link?.title ?? id}"` })
+      load()
+    } catch {
+      toast("Failed to delete link", "error")
+    }
   }
 
   const filtered = search

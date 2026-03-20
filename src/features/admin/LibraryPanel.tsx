@@ -5,6 +5,7 @@ import { getAllLibraryEntries, deleteLibraryEntry } from "./admin-service"
 import { logAuditEvent } from "./audit-service"
 import { timeAgo } from "@/shared/utils/time"
 import { ConfirmButton } from "./ConfirmButton"
+import { useToast } from "@/shared/components/Toast"
 import type { ActorInfo } from "./UsersPanel"
 
 function advancementLabel(id: string): string {
@@ -20,18 +21,24 @@ export function LibraryPanel({ actor }: { readonly actor: ActorInfo }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
+  const { toast } = useToast()
+
   const load = useCallback(() => {
     setLoading(true)
-    getAllLibraryEntries().then(setEntries).finally(() => setLoading(false))
-  }, [])
+    getAllLibraryEntries().then(setEntries).catch(() => toast("Failed to load library entries", "error")).finally(() => setLoading(false))
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
-    const entry = entries.find((e) => e.id === id)
-    await deleteLibraryEntry(id)
-    await logAuditEvent({ ...actor, action: "delete_library_entry", targetCollection: "libraryEntries", targetId: id, details: `Deleted entry "${entry?.title ?? id}"` })
-    load()
+    try {
+      const entry = entries.find((e) => e.id === id)
+      await deleteLibraryEntry(id)
+      await logAuditEvent({ ...actor, action: "delete_library_entry", targetCollection: "libraryEntries", targetId: id, details: `Deleted entry "${entry?.title ?? id}"` })
+      load()
+    } catch {
+      toast("Failed to delete entry", "error")
+    }
   }
 
   const filtered = search

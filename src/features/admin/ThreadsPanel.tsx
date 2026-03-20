@@ -5,6 +5,7 @@ import { getAllThreads, deleteThread } from "./admin-service"
 import { logAuditEvent } from "./audit-service"
 import { timeAgo } from "@/shared/utils/time"
 import { ConfirmButton } from "./ConfirmButton"
+import { useToast } from "@/shared/components/Toast"
 import type { ActorInfo } from "./UsersPanel"
 
 function advancementLabel(id: string): string {
@@ -20,18 +21,24 @@ export function ThreadsPanel({ actor }: { readonly actor: ActorInfo }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
+  const { toast } = useToast()
+
   const load = useCallback(() => {
     setLoading(true)
-    getAllThreads().then(setThreads).finally(() => setLoading(false))
-  }, [])
+    getAllThreads().then(setThreads).catch(() => toast("Failed to load threads", "error")).finally(() => setLoading(false))
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
-    const thread = threads.find((t) => t.id === id)
-    await deleteThread(id)
-    await logAuditEvent({ ...actor, action: "delete_thread", targetCollection: "discussionThreads", targetId: id, details: `Deleted thread "${thread?.title ?? id}"` })
-    load()
+    try {
+      const thread = threads.find((t) => t.id === id)
+      await deleteThread(id)
+      await logAuditEvent({ ...actor, action: "delete_thread", targetCollection: "discussionThreads", targetId: id, details: `Deleted thread "${thread?.title ?? id}"` })
+      load()
+    } catch {
+      toast("Failed to delete thread", "error")
+    }
   }
 
   const filtered = search

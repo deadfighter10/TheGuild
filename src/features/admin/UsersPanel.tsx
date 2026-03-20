@@ -4,6 +4,7 @@ import { getAllUsers, updateUserRep, deleteUser } from "./admin-service"
 import { logAuditEvent } from "./audit-service"
 import { timeAgo } from "@/shared/utils/time"
 import { ConfirmButton } from "./ConfirmButton"
+import { useToast } from "@/shared/components/Toast"
 
 export type ActorInfo = { readonly actorId: string; readonly actorName: string }
 
@@ -13,29 +14,38 @@ export function UsersPanel({ actor }: { readonly actor: ActorInfo }) {
   const [search, setSearch] = useState("")
   const [editingRep, setEditingRep] = useState<string | null>(null)
   const [repValue, setRepValue] = useState("")
+  const { toast } = useToast()
 
   const load = useCallback(() => {
     setLoading(true)
-    getAllUsers().then(setUsers).finally(() => setLoading(false))
-  }, [])
+    getAllUsers().then(setUsers).catch(() => toast("Failed to load users", "error")).finally(() => setLoading(false))
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleRepSave = async (uid: string) => {
     const val = parseInt(repValue, 10)
     if (isNaN(val)) return
-    const oldUser = users.find((u) => u.uid === uid)
-    await updateUserRep(uid, val)
-    await logAuditEvent({ ...actor, action: "update_rep", targetCollection: "users", targetId: uid, details: `Rep changed from ${oldUser?.repPoints ?? "?"} to ${val}` })
-    setEditingRep(null)
-    load()
+    try {
+      const oldUser = users.find((u) => u.uid === uid)
+      await updateUserRep(uid, val)
+      await logAuditEvent({ ...actor, action: "update_rep", targetCollection: "users", targetId: uid, details: `Rep changed from ${oldUser?.repPoints ?? "?"} to ${val}` })
+      setEditingRep(null)
+      load()
+    } catch {
+      toast("Failed to update rep", "error")
+    }
   }
 
   const handleDelete = async (uid: string) => {
-    const user = users.find((u) => u.uid === uid)
-    await deleteUser(uid)
-    await logAuditEvent({ ...actor, action: "delete_user", targetCollection: "users", targetId: uid, details: `Deleted user "${user?.displayName ?? uid}"` })
-    load()
+    try {
+      const user = users.find((u) => u.uid === uid)
+      await deleteUser(uid)
+      await logAuditEvent({ ...actor, action: "delete_user", targetCollection: "users", targetId: uid, details: `Deleted user "${user?.displayName ?? uid}"` })
+      load()
+    } catch {
+      toast("Failed to delete user", "error")
+    }
   }
 
   const filtered = search

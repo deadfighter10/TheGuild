@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/features/auth/AuthContext"
 import { toggleBookmark, isBookmarked } from "./bookmark-service"
+import { useToast } from "@/shared/components/Toast"
 import type { BookmarkTargetType } from "@/domain/bookmark"
 
 type BookmarkButtonProps = {
@@ -14,13 +15,14 @@ export function BookmarkButton({ targetType, targetId, targetTitle, advancementI
   const { guildUser } = useAuth()
   const [saved, setSaved] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (!guildUser) return
     isBookmarked(guildUser.uid, targetType, targetId)
       .then(setSaved)
-      .catch((err) => console.error("Failed to check bookmark:", err))
-  }, [guildUser, targetType, targetId])
+      .catch(() => toast("Failed to check bookmark", "error"))
+  }, [guildUser, targetType, targetId, toast])
 
   if (!guildUser) return null
 
@@ -35,8 +37,8 @@ export function BookmarkButton({ targetType, targetId, targetTitle, advancementI
         advancementId,
       })
       setSaved(nowSaved)
-    } catch (err) {
-      console.error("Failed to toggle bookmark:", err)
+    } catch {
+      toast("Failed to toggle bookmark", "error")
     } finally {
       setToggling(false)
     }

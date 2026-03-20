@@ -5,6 +5,7 @@ import { getAllNodes, deleteNode, updateNodeField } from "./admin-service"
 import { logAuditEvent } from "./audit-service"
 import { timeAgo } from "@/shared/utils/time"
 import { ConfirmButton } from "./ConfirmButton"
+import { useToast } from "@/shared/components/Toast"
 import type { ActorInfo } from "./UsersPanel"
 
 function advancementLabel(id: string): string {
@@ -20,25 +21,35 @@ export function NodesPanel({ actor }: { readonly actor: ActorInfo }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
+  const { toast } = useToast()
+
   const load = useCallback(() => {
     setLoading(true)
-    getAllNodes().then(setNodes).finally(() => setLoading(false))
-  }, [])
+    getAllNodes().then(setNodes).catch(() => toast("Failed to load nodes", "error")).finally(() => setLoading(false))
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string) => {
-    const node = nodes.find((n) => n.id === id)
-    await deleteNode(id)
-    await logAuditEvent({ ...actor, action: "delete_node", targetCollection: "nodes", targetId: id, details: `Deleted idea "${node?.title ?? id}"` })
-    load()
+    try {
+      const node = nodes.find((n) => n.id === id)
+      await deleteNode(id)
+      await logAuditEvent({ ...actor, action: "delete_node", targetCollection: "nodes", targetId: id, details: `Deleted idea "${node?.title ?? id}"` })
+      load()
+    } catch {
+      toast("Failed to delete node", "error")
+    }
   }
 
   const handleStatusChange = async (id: string, status: string) => {
-    const node = nodes.find((n) => n.id === id)
-    await updateNodeField(id, "status", status)
-    await logAuditEvent({ ...actor, action: "update_node_status", targetCollection: "nodes", targetId: id, details: `Changed status of "${node?.title ?? id}" from ${node?.status ?? "?"} to ${status}` })
-    load()
+    try {
+      const node = nodes.find((n) => n.id === id)
+      await updateNodeField(id, "status", status)
+      await logAuditEvent({ ...actor, action: "update_node_status", targetCollection: "nodes", targetId: id, details: `Changed status of "${node?.title ?? id}" from ${node?.status ?? "?"} to ${status}` })
+      load()
+    } catch {
+      toast("Failed to update status", "error")
+    }
   }
 
   const filtered = search

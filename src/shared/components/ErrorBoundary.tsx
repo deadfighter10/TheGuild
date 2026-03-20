@@ -1,4 +1,5 @@
 import { Component } from "react"
+import { errorTracker } from "@/lib/error-tracking"
 import type { ReactNode, ErrorInfo } from "react"
 
 type Props = {
@@ -23,6 +24,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("ErrorBoundary caught:", error, errorInfo)
+    errorTracker.captureException(error, {
+      route: window.location.pathname,
+      action: "ErrorBoundary",
+    })
   }
 
   render() {

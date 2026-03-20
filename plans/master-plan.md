@@ -717,7 +717,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Security Hardening (S16–S22) | COMPLETE — all P0 + P1 findings fixed |
 | Security Audit (S23–S25) | 3 P2 findings remain (low priority) |
 | Technical Debt (T1–T5) | 4/5 done — T2 component splits remain |
-| Testing | COMPLETE — 69 files, 779 unit tests, 84 rules tests |
+| Testing | COMPLETE — 71 files, 808 unit tests, 84 rules tests |
 | Accessibility (A11Y 1–3) | COMPLETE |
 | Sprint 1: Code Quality | COMPLETE |
 | Sprint 2: Discovery & Content | COMPLETE |
@@ -725,7 +725,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Platform Analytics | COMPLETE — anonymous + auth tracking, admin dashboard |
 | Security Hardening | COMPLETE |
 | Sprint 4: Platform Maturity | COMPLETE — OG meta, ShareButton, T2 component splits, PWA + FCM, Email Digest, Research Paper Import |
-| **Sprint 5: Production Stabilization** | **IN PROGRESS** — S5-2 DONE, S5-4 DONE, S5-5 partial (3/5), S5-3 partial (2/4). Remaining: E2E (S5-1), Cloud Function tests (#59), toast audit (#60), Lighthouse (#29), monitoring (S5-6) |
+| **Sprint 5: Production Stabilization** | **COMPLETE** — All 6 phases done. 808 unit tests across 71 files. E2E infra (Playwright), security regression tests (XSS, CSP, auth bypass), schema drift detection, rate limit boundary tests, RouteErrorBoundary, OfflineBanner, Cloud Function error mode tests, toast coverage audit, CI gates (bundle size, Lighthouse, dependency audit, preview deploy), error tracking, monitoring docs |
 | Sprint 6: The Bounty Board | PLANNED — design complete (`plans/bounty-system.md`), 3 implementation phases |
 | Reputation System Revision | DESIGNED — 11-tier system (`plans/reputation-system-revision.md`), not yet implemented |
 | Backlog (P3) | 9 items across 4 categories |
