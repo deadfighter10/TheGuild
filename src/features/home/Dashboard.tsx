@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { PILLAR_THEMES } from "@/domain/pillar-theme"
@@ -188,6 +189,7 @@ function getActivityLabel(type: ActivityItem["type"]): string {
 }
 
 export function Dashboard() {
+  usePageMeta({ title: "Dashboard" })
   const { guildUser } = useAuth()
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     try { return localStorage.getItem("guild-getting-started-dismissed") === "1" }

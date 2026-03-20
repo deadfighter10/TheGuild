@@ -4,6 +4,7 @@ import { updateProfile } from "firebase/auth"
 import { getFunctions, httpsCallable } from "firebase/functions"
 import { db, auth, app } from "@/lib/firebase"
 import { useAuth } from "@/features/auth/AuthContext"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { getRepTier, isAdmin } from "@/domain/user"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
@@ -519,6 +520,7 @@ function BookmarksSection({ userId }: { readonly userId: string }) {
 }
 
 export function ProfilePage() {
+  usePageMeta({ title: "Profile" })
   const { guildUser } = useAuth()
   const [editingProfile, setEditingProfile] = useState(false)
 

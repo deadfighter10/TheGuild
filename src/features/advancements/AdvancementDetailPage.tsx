@@ -13,6 +13,7 @@ import { getNodesByAdvancement } from "@/features/tree/node-service"
 import { getLibraryEntries } from "@/features/library/library-service"
 import { getNewsLinks } from "@/features/newsroom/news-service"
 import { getThreadsByAdvancement } from "@/features/discussions/discussion-service"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { timeAgo } from "@/shared/utils/time"
 
 type Tab = "overview" | "tree" | "discussions" | "library" | "platforms"
@@ -222,6 +223,8 @@ export function AdvancementDetailPage() {
       </div>
     )
   }
+
+  usePageMeta({ title: advancement.name })
 
   const stats = useSubHubStats(advancement.id)
   const activePillar = TAB_CONFIG.find((t) => t.key === activeTab)?.pillar

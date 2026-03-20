@@ -14,6 +14,8 @@ import { Markdown } from "@/shared/components/Markdown"
 import { SkeletonText } from "@/shared/components/Skeleton"
 import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
 import { SubmitForReviewButton } from "@/features/peer-review/SubmitForReviewButton"
+import { ShareButton } from "@/shared/components/ShareButton"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { timeAgo } from "@/shared/utils/time"
 import { sanitizeUrl } from "@/shared/components/markdown-renderer"
 
@@ -216,6 +218,8 @@ export function LibraryEntryPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
 
+  usePageMeta({ title: entry ? `${entry.title} — Library` : undefined })
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -311,6 +315,7 @@ export function LibraryEntryPage() {
               targetTitle={entry.title}
               advancementId={entry.advancementId}
             />
+            <ShareButton title={entry.title} />
             <SubmitForReviewButton
               contentType="libraryEntry"
               contentId={entry.id}

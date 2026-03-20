@@ -13,6 +13,8 @@ import { useToast } from "@/shared/components/Toast"
 import { FlagButton } from "@/features/moderation/FlagButton"
 import { BookmarkButton } from "@/features/bookmarks/BookmarkButton"
 import { SubmitForReviewButton } from "@/features/peer-review/SubmitForReviewButton"
+import { ShareButton } from "@/shared/components/ShareButton"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { timeAgo } from "@/shared/utils/time"
 
 const STATUS_STYLES: Record<NodeStatus, { readonly dot: string; readonly label: string; readonly badge: string }> = {
@@ -50,6 +52,9 @@ export function NodeDetailPage() {
   const [editDescription, setEditDescription] = useState("")
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState("")
+
+  const nodeAdvancement = advancementId ? ADVANCEMENTS.find((a) => a.id === advancementId) : undefined
+  usePageMeta({ title: node ? `${node.title} — ${nodeAdvancement?.name ?? "The Tree"}` : undefined })
 
   useEffect(() => {
     if (!nodeId || !advancementId) return
@@ -291,6 +296,8 @@ export function NodeDetailPage() {
             targetTitle={node.title}
             advancementId={node.advancementId}
           />
+
+          <ShareButton title={node.title} />
 
           {canUserModerate && (
             <div className="flex items-center gap-1 ml-auto">

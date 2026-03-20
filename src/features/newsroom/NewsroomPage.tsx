@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearch } from "@/shared/hooks/use-search"
 import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { canContribute } from "@/domain/reputation"
@@ -173,6 +174,7 @@ function NewsItem({ link, onVoted }: NewsItemProps) {
 }
 
 export function NewsroomPage() {
+  usePageMeta({ title: "Newsroom" })
   const { guildUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [showSubmitForm, setShowSubmitForm] = useState(false)

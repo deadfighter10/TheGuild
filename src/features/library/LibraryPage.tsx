@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/features/auth/AuthContext"
+import { usePageMeta } from "@/shared/hooks/use-page-meta"
 import { ADVANCEMENTS } from "@/domain/advancement"
 import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { getLibraryEntries } from "./library-service"
@@ -41,6 +42,7 @@ const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
 const LIBRARY_REP_MIN = 1500
 
 export function LibraryPage() {
+  usePageMeta({ title: "Library" })
   const { guildUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [entries, setEntries] = useState<readonly LibraryEntry[]>([])
