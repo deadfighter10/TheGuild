@@ -112,6 +112,15 @@ For detailed TypeScript patterns and rationale, load the `typescript-strict` ski
 
 For detailed patterns and examples, load the `functional` skill.
 
+## GitHub Issue Tracking
+
+**Core principle**: The GitHub Issues tab is the public source of truth for project progress. Keep it in sync.
+
+- When a feature, bug fix, or task is **completed**, close the corresponding GitHub issue (use `gh issue close <number>`) with a brief comment noting what was done.
+- When a **new bug, task, or feature need** is discovered during development, create a GitHub issue for it immediately (use `gh issue create`) with appropriate labels.
+- When work **changes scope** or reveals sub-tasks, update the existing issue body or create linked sub-issues.
+- Use the existing labels: `testing`, `security`, `infrastructure`, `stabilization`, `backlog`, `future-phase`, `good first issue`.
+
 ## Development Workflow
 
 **Core principle**: RED-GREEN-REFACTOR in small, known-good increments. TDD is the fundamental practice.

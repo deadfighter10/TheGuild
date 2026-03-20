@@ -9,6 +9,7 @@ import { ADVANCEMENT_THEMES } from "@/domain/advancement-theme"
 import { AdvancementIcon } from "@/shared/components/Icons"
 import type { ReactNode } from "react"
 import { NotificationBell } from "@/features/notifications/NotificationBell"
+import { OfflineBanner } from "@/shared/components/OfflineBanner"
 import { UserAvatar } from "@/shared/components/UserAvatar"
 import Fuse from "fuse.js"
 
@@ -263,6 +264,7 @@ export function Layout({ children }: { readonly children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-void-950 text-white noise-overlay">
+      <OfflineBanner />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-void-900 focus:text-white focus:rounded-lg focus:border focus:border-white/20 focus:text-sm"

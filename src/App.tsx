@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "@/features/auth/AuthContext"
 import { isAdmin } from "@/domain/user"
 import { Layout } from "@/shared/components/Layout"
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary"
+import { RouteErrorBoundary } from "@/shared/components/RouteErrorBoundary"
 import { ToastProvider } from "@/shared/components/Toast"
 import type { ReactNode } from "react"
 
@@ -84,17 +85,18 @@ export function App() {
         <Layout>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/advancements" element={<AdvancementsPage />} />
-              <Route path="/advancements/:id" element={<ProtectedRoute><AdvancementDetailPage /></ProtectedRoute>} />
-              <Route path="/advancements/:id/tree/:nodeId" element={<ProtectedRoute><NodeDetailPage /></ProtectedRoute>} />
-              <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} />
-              <Route path="/library/:id" element={<ProtectedRoute><LibraryEntryPage /></ProtectedRoute>} />
-              <Route path="/newsroom" element={<ProtectedRoute><NewsroomPage /></ProtectedRoute>} />
-              <Route path="/pool" element={<ProtectedRoute><PoolPage /></ProtectedRoute>} />
+              <Route path="/" element={<RouteErrorBoundary><HomePage /></RouteErrorBoundary>} />
+              <Route path="/advancements" element={<RouteErrorBoundary><AdvancementsPage /></RouteErrorBoundary>} />
+              <Route path="/advancements/:id" element={<RouteErrorBoundary><ProtectedRoute><AdvancementDetailPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/advancements/:id/tree/:nodeId" element={<RouteErrorBoundary><ProtectedRoute><NodeDetailPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/library" element={<RouteErrorBoundary><ProtectedRoute><LibraryPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/library/:id" element={<RouteErrorBoundary><ProtectedRoute><LibraryEntryPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/newsroom" element={<RouteErrorBoundary><ProtectedRoute><NewsroomPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/pool" element={<RouteErrorBoundary><ProtectedRoute><PoolPage /></ProtectedRoute></RouteErrorBoundary>} />
               <Route
                 path="/auth"
                 element={
+                  <RouteErrorBoundary>
                   <PublicRoute>
                     <div className="max-w-7xl mx-auto px-6 pt-12">
                       <div className="text-center mb-4">
@@ -106,38 +108,47 @@ export function App() {
                       <AuthForm />
                     </div>
                   </PublicRoute>
+                  </RouteErrorBoundary>
                 }
               />
               <Route
                 path="/onboarding"
                 element={
+                  <RouteErrorBoundary>
                   <OnboardingRoute>
                     <OnboardingPage />
                   </OnboardingRoute>
+                  </RouteErrorBoundary>
                 }
               />
               <Route
                 path="/profile"
                 element={
+                  <RouteErrorBoundary>
                   <ProtectedRoute>
                     <ProfilePage />
                   </ProtectedRoute>
+                  </RouteErrorBoundary>
                 }
               />
               <Route
                 path="/users/:uid"
                 element={
+                  <RouteErrorBoundary>
                   <ProtectedRoute>
                     <PublicProfilePage />
                   </ProtectedRoute>
+                  </RouteErrorBoundary>
                 }
               />
               <Route
                 path="/admin"
                 element={
+                  <RouteErrorBoundary>
                   <AdminRoute>
                     <AdminPage />
                   </AdminRoute>
+                  </RouteErrorBoundary>
                 }
               />
             </Routes>

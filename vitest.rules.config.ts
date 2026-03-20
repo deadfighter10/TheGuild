@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/lib/firestore-rules.test.ts"],
+    include: ["src/lib/firestore-rules.test.ts", "src/lib/auth-bypass.test.ts"],
     testTimeout: 30000,
   },
 })

@@ -1,7 +1,7 @@
 # The Guild — Master Plan
 
 > Single source of truth for architecture, completed work, security posture, and roadmap.
-> Last revised: 2026-03-18.
+> Last revised: 2026-03-20.
 
 ---
 
@@ -14,9 +14,10 @@
 5. [Immediate Work — Security Hardening](#immediate-work--security-hardening)
 6. [Sprint 4: Platform Maturity](#sprint-4-platform-maturity)
 7. [Sprint 5: Production Stabilization](#sprint-5-production-stabilization)
-8. [Backlog](#backlog)
-9. [Future Phases](#future-phases)
-10. [Progress Summary](#progress-summary)
+8. [Sprint 6: The Bounty Board](#sprint-6-the-bounty-board)
+9. [Backlog](#backlog)
+10. [Future Phases](#future-phases)
+11. [Progress Summary](#progress-summary)
 
 ---
 
@@ -43,10 +44,15 @@
 | **The Grand Library** | Curated learning resources with difficulty levels, version history, and markdown content | 1500+ to create |
 | **The Newsroom** | Community-submitted news links per advancement with voting and sorting | 100+ to submit |
 | **Discussions** | Threaded conversations per advancement | 100+ to post |
+| **The Bounty Board** | Public wall of community-posted tasks with rep rewards for completion | Planned (Sprint 6) |
 | **The Pool** | Community-funded treasury (placeholder page exists at `/pool`) | Future |
 | **The Dojo** | Structured learning paths built on Library entries | Future |
 
 ### Reputation System
+
+> **Current implementation** uses the simple 4-tier model below. A comprehensive revision is designed in `plans/reputation-system-revision.md` (11 tiers, supervised queue, breadth bonuses, decay, anti-gaming) — not yet implemented. The Bounty Board (`plans/bounty-system.md`) is designed against the revised system but can be built on either.
+
+#### Current (Implemented)
 
 | Range | Tier | Access |
 |-------|------|--------|
@@ -57,6 +63,12 @@
 
 **Rep sources:** School email verification (+100 via Cloud Function), vouches (+100), idea supports (+10), breakthroughs (+500 future), Google Scholar citations (future).
 **Rep sinks:** Rule-breaking, junk uploads, trolling. Negative rep = temp ban.
+
+#### Planned Revision (Design Complete)
+
+Four phases, 11 tiers: Newcomer (0) → Apprentice (33) → Initiate (333) → Contributor (1,333) → Established (6,333) → Scholar (9,333) → Curator (13,333) → Mentor (21,333) → Reviewer (25,333) → Senior (29,333) → Moderator (33,333). Supervised content queue for pre-Core users, diminishing returns per content item, quality multipliers on peer-reviewed work, inactivity decay, breadth bonuses, and comprehensive anti-gaming (sybil detection, vote rings, farming patterns).
+
+Full design: `plans/reputation-system-revision.md`
 
 ---
 
@@ -126,10 +138,10 @@ functions/src/        Cloud Functions (Admin SDK)
 
 | Metric | Count |
 |--------|-------|
-| Total TypeScript | ~23,200 lines |
-| Test code | ~8,100 lines (35%) |
-| Test files | 57 |
-| Tests | 577 |
+| Source files | 188 (.ts/.tsx) |
+| Test code | ~9,600 lines |
+| Test files | 62 |
+| Tests | 641 |
 | Domain modules | 19 |
 | Service modules | 14 |
 | Page components | 14 |
@@ -423,7 +435,7 @@ Rate limiting is dual-layer: client-side checks via `checkRateLimit` + Firestore
 
 ## Completed: Security Hardening (S16–S22)
 
-> All P0 and P1 security findings resolved. 84 Firestore rules tests, 601 unit tests.
+> All P0 and P1 security findings resolved. 84 Firestore rules tests, 641 unit tests.
 
 **What was done:**
 - Added Firestore rules for 6 missing collections (`peerReviews`, `achievements`, `spotlights`, `contentCollaborators`, `pageViews`, `spotlightVotes`)
@@ -541,6 +553,42 @@ Before any production deployment, all of the following must be green:
 
 ---
 
+## Sprint 6: The Bounty Board
+
+> Begins after Sprint 5. Adds a public task marketplace where contributors post work requests and hunters earn rep by completing them. Full design: `plans/bounty-system.md`.
+
+### Why Now
+
+The Bounty Board solves three problems that become acute after production stabilization: newcomers have no guided path to earn rep, experienced members can't direct work toward gaps they see, and there's no structured way to ask for help. It also lays groundwork for the rep system revision by introducing system-minted rewards tied to verified work.
+
+### Key Design Decisions
+
+- **Rep is trust, not currency** — posting a bounty costs nothing. The hunter earns system-minted rep on completion, same as any other contribution. The poster earns a token bonus (+3 to +10).
+- **Posting requires Core phase** — Contributor (1,333+) can post bounties at any difficulty. Pre-Core users can browse and claim (rate-limited).
+- **4 difficulty tiers** — Newcomer (15–75 rep), Standard (30–150), Advanced (75–333), Expert (150–666). No tier-gating on claiming — any Apprentice can attempt any difficulty.
+- **Quality gate is the review, not the tier** — the poster reviews and accepts/rejects submissions. Auto-accept after 7 days prevents stalling.
+- **Anti-collusion with appeals** — reciprocal blocks, concentration limits, and ring detection catch farming. All automated restrictions can be overridden by a Moderator appeal so legitimate collaborators aren't punished.
+- **Inflation-controlled** — poster posting cap (3 open, 5/week), reward ranges, daily cap (500/day with deferral), platform-wide weekly cap (5,000 rep/week).
+
+### Implementation Phases
+
+| Phase | Items | Effort |
+|-------|-------|--------|
+| **6.1 Core** | Bounty CRUD, reward minting on completion, claiming/submission flow, poster review (accept/reject), Bounty Board page with filters, basic notifications | Large |
+| **6.2 Safety** | Anti-collusion detection (reciprocal block, concentration limit, ring detection), moderator appeal system, claim squatting defenses, edit freeze on claim, auto-accept timeout, community flagging | Medium |
+| **6.3 Engagement** | Mutual ratings, work logs, bounty-related achievements (5 new), system bounties (admin-posted), analytics dashboard integration, "Bounties for you" on Dashboard | Medium |
+
+### New Infrastructure
+
+| Item | Details |
+|------|---------|
+| Collections | `bounties`, `bountySubmissions`, `bountyWorkLogs`, `bountyDisputes`, `bountyRatings` (5 new) |
+| Cloud Functions | `completeBounty` (mint rep), `autoAcceptSubmission`, `expireBounties`, `expireClaims`, `detectBountyAbuse` (5 new) |
+| Pages | `/bounties` (board), `/bounties/:id` (detail) |
+| Firestore rules | Read for all authenticated users, create/update gated by role (poster vs hunter) |
+
+---
+
 ## Backlog
 
 Features that add value but aren't blocking growth. Pull into sprints as capacity allows.
@@ -623,11 +671,11 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Item | Description |
 |------|-------------|
 | Citations | Google Scholar citation integration |
-| Awards | Breakthrough awards (+500 Rep) |
-| Decay | Rep decay for inactivity, negative Rep enforcement |
+| Awards | Breakthrough awards (+1,666 Rep to author, +250 to reviewer) |
 | Visibility | Leaderboard per advancement, reputation API |
 
 **Depends on:** Mature community, established norms for Rep fairness.
+**Note:** The rep system revision (`plans/reputation-system-revision.md`) already designs decay, 11 tiers, diminishing returns, breadth bonuses, and anti-gaming. If the revision is implemented before this phase, the remaining items here are citations and visibility only.
 
 ### Phase 11: Community & Social
 | Item | Description |
@@ -641,12 +689,12 @@ Major platform expansions, each building on the previous. Order reflects depende
 ### Phase 12: Content Quality
 | Item | Description |
 |------|-------------|
-| Translations | Plain-language research paper translations (bounty-funded from Pool) |
+| Translations | Plain-language research paper translations (posted as bounties on the Bounty Board) |
 | Citation graph | Visual links between Tree nodes |
 | Quality scoring | Algorithm-based, "Verified" badge |
 | Plagiarism | Automated detection |
 
-**Depends on:** Pool (Phase 7) for bounty funding, peer review (Sprint 3, done).
+**Depends on:** Bounty Board (Sprint 6) for translation bounties, peer review (Sprint 3, done).
 
 ### Phase 13: Platform & Infrastructure
 | # | Item | Description |
@@ -669,7 +717,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Security Hardening (S16–S22) | COMPLETE — all P0 + P1 findings fixed |
 | Security Audit (S23–S25) | 3 P2 findings remain (low priority) |
 | Technical Debt (T1–T5) | 4/5 done — T2 component splits remain |
-| Testing | COMPLETE — 58 files, 601+ unit tests, 84 rules tests |
+| Testing | COMPLETE — 69 files, 779 unit tests, 84 rules tests |
 | Accessibility (A11Y 1–3) | COMPLETE |
 | Sprint 1: Code Quality | COMPLETE |
 | Sprint 2: Discovery & Content | COMPLETE |
@@ -677,6 +725,8 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Platform Analytics | COMPLETE — anonymous + auth tracking, admin dashboard |
 | Security Hardening | COMPLETE |
 | Sprint 4: Platform Maturity | COMPLETE — OG meta, ShareButton, T2 component splits, PWA + FCM, Email Digest, Research Paper Import |
-| **Sprint 5: Production Stabilization** | **NEXT** — E2E tests, data integrity, error resilience, security regression, build safety, monitoring |
+| **Sprint 5: Production Stabilization** | **IN PROGRESS** — S5-2 DONE, S5-4 DONE, S5-5 partial (3/5), S5-3 partial (2/4). Remaining: E2E (S5-1), Cloud Function tests (#59), toast audit (#60), Lighthouse (#29), monitoring (S5-6) |
+| Sprint 6: The Bounty Board | PLANNED — design complete (`plans/bounty-system.md`), 3 implementation phases |
+| Reputation System Revision | DESIGNED — 11-tier system (`plans/reputation-system-revision.md`), not yet implemented |
 | Backlog (P3) | 9 items across 4 categories |
 | Future Phases (6–13) | 8 phases planned |

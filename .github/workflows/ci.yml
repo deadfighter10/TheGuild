@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Dependency audit
+        run: cd functions && npm audit --audit-level=high || echo "::warning::npm audit found high-severity vulnerabilities in functions/"
+        continue-on-error: true
+
       - name: Type-check
         run: bun run lint
 
@@ -43,12 +47,62 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
+      - name: Bundle size check
+        run: |
+          TOTAL=$(find dist/assets -name '*.js' -exec gzip -c {} \; | wc -c)
+          TOTAL_KB=$((TOTAL / 1024))
+          echo "Gzipped JS bundle size: ${TOTAL_KB}KB"
+          if [ "$TOTAL_KB" -gt 600 ]; then
+            echo "::error::Bundle size ${TOTAL_KB}KB exceeds 600KB budget"
+            exit 1
+          fi
+
       - name: Upload build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+
+  preview:
+    name: Preview Deploy
+    needs: check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install and build
+        run: bun install --frozen-lockfile && bun run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      - name: Deploy preview channel
+        id: preview_deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+
+      - name: Smoke test preview
+        if: steps.preview_deploy.outputs.details_url
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.preview_deploy.outputs.details_url }}")
+          echo "Preview URL responded with HTTP $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "::warning::Preview deploy smoke test failed with HTTP $STATUS"
+          fi
 
   deploy:
     name: Deploy to Firebase
