@@ -14,15 +14,37 @@
 
 ### Key Domain Concepts
 
-- **Rep (Reputation Points)**: Point system starting at 0. Earned via school email verification (100), vouches (100), successful ideas (variable), Google Scholar citations (variable), breakthroughs (500). Lost by rule-breaking, uploading junk, trolling. Negative Rep = temp ban.
-- **Rep Ladder**: 0-100 (read + supervised small contributions), 100-3000 (full contributor, ideas, Discord access), 3000+ (moderator status).
-- **The Grand Library**: Free learning resource to catch up to current knowledge. 1500+ Rep to contribute. Features: plain-language research paper translation, bounties for knowledge gaps funded by The Pool.
-- **The Dojo**: Academic learning environment to reach contribution-ready level. Professors/teachers create content. Built on The Grand Library + mentoring from academic mentors.
-- **The Pool**: Donation-funded treasury. Monthly maintenance costs deducted first, remainder funds contributors and experiments for promising ideas based on contributions and Rep.
-- **The Tree**: Visual knowledge graph per Advancement. Nodes = ideas, subnodes = builds on ideas. Green = proven/peer-reviewed, Red = theoretical/unproven, Black = disproved (hidden along with sub-ideas). Nodes show creator + support/spotlight system for promising ideas.
-- **The Newsroom**: Aggregated news and papers about the Advancements from real-world sources and hub discoveries. Possibly RSS-fed.
-- **The Launchpad**: Integration layer connecting to GitHub, Notion, Obsidian, Google Docs, NotebookLM, etc. Contributions on external platforms (e.g., merged PRs) earn Rep. Access gated by Rep level. Summarizes current state of ideas.
-- **The Data Vault**: Open dataset repository. 1000+ Rep to upload, peer review required. Organizational backing helps acceptance. Falsified data = huge Rep penalty/instant ban + all related Tree nodes flagged for re-verification.
+- **Rep (Reputation Points)**: Point system starting at 0. Earned via school email verification (100), vouches (100), successful ideas (variable), breakthroughs (500). Lost by rule-breaking, uploading junk, trolling. Negative Rep = temp ban.
+- **Rep Ladder**: 0–99 Observer (read + supervised small contributions), 100–2999 Contributor (full contributions, ideas, voting), 3000+ Moderator (moderation tools, peer review, governance).
+- **The Tree**: Visual knowledge graph per Advancement. Nodes = ideas, subnodes = builds on ideas. Green = proven/peer-reviewed, Red = theoretical/unproven, Black = disproved. Fuzzy search, node detail pages, lineage breadcrumbs.
+- **The Grand Library**: Curated learning resources — articles, videos, papers — with version history, difficulty levels, and peer contributions.
+- **The Newsroom**: Aggregated news and papers about the Advancements. Community voting (hot/new/top), fuzzy search, link submission.
+- **Discussions**: Threaded conversations scoped to each advancement with pagination, editing, and deletion.
+- **Peer Review**: Formal review queue for Tree nodes and Library entries. Structured feedback with multi-stage workflow.
+- **Achievements**: 13 badges across milestone, advancement, and special categories.
+- **Spotlights**: Community-nominated "Idea of the Week" per advancement. Weekly rotation, vote-driven.
+- **Co-Authorship**: Invite collaborators to co-author Tree nodes or Library entries.
+- **Contribution Streaks**: GitHub-style heatmap of daily contributions across all content types.
+- **Analytics**: Privacy-first page view tracking (no cookies, no PII). Admin dashboard with trends, growth, and moderation health.
+- **Notifications**: Real-time notification bell for replies, supports, vouches, flags, rep changes, and peer review updates.
+- **Moderation**: Community flagging system with admin review panel and resolution workflow.
+
+#### Future Phases (not yet built)
+
+- **The Dojo**: Academic learning environment built on the Grand Library + mentoring.
+- **The Pool**: Donation-funded treasury for community experiments and contributors.
+- **The Launchpad**: Integration layer connecting to GitHub, Notion, Obsidian, etc. External contributions earn Rep.
+- **The Data Vault**: Open dataset repository with peer review and falsification penalties.
+
+### Architecture Notes
+
+- **Backend**: Firebase Auth + Firestore + Cloud Functions v2 + Hosting
+- **Firestore rules**: `firestore.rules` — default-deny, ownership checks, Rep-gated writes, input length limits
+- **Cloud Functions**: `functions/src/index.ts` — 8 functions for admin ops, email verification, rate limiting, session management
+- **Zod validation**: All Firestore reads go through `parse*Doc` functions in `src/lib/firestore-schemas.ts`
+- **Rate limiting**: Dual-layer — client-side hourly/daily checks (`src/lib/rate-limit.ts`) + Firestore rules 10s minimum interval
+- **Page views**: Anonymous tracking with localStorage-based rate limiting (120/hour), no PII
+- **20 Firestore collections**, 14 service modules, 57 test files, 577 tests
 
 ## Core Philosophy
 

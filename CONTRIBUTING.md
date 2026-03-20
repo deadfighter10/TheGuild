@@ -76,7 +76,8 @@ Open an issue using the **Feature Request** template. Describe:
 3. Ensure all checks pass:
    ```bash
    bun run lint       # Type-check
-   bun run test:run   # Tests
+   bun run test:run   # Unit/integration tests (577 tests)
+   bun run test:rules # Firestore rules tests (requires emulators running)
    bun run build      # Production build
    ```
 4. Write a clear commit message describing what and why
@@ -94,31 +95,45 @@ Open an issue using the **Feature Request** template. Describe:
 
 ```
 src/
-├── domain/        # Pure business logic and types (no React, no Firebase)
-├── features/      # Feature modules (components + service layer)
-│   ├── admin/     # Admin panel
-│   ├── auth/      # Authentication
-│   ├── bookmarks/ # Content bookmarking
-│   ├── discussions/ # Threaded discussions
-│   ├── library/   # Grand Library + versioning
-│   ├── moderation/ # Content flagging
-│   ├── newsroom/  # News aggregation + voting
-│   ├── notifications/ # Notification system
-│   ├── tree/      # Knowledge graph
-│   ├── vouch/     # Vouch system
-│   └── ...        # globe, home, onboarding, pool, profile
-├── shared/        # Reusable UI components, hooks, and utilities
-│   ├── components/ # Layout, Toast, RepGate, Markdown, EmptyState, etc.
-│   ├── hooks/     # useSearch, useFocusTrap, useRealtimeQuery, etc.
-│   └── utils/     # timeAgo, etc.
-└── lib/           # External service configuration + schemas
-    ├── firebase.ts # Firebase initialization
+├── domain/           # Pure business logic and types (no React, no Firebase)
+├── features/         # Feature modules (components + service layer)
+│   ├── achievements/ # Achievement badges and awarding
+│   ├── admin/        # Admin panel (users, flags, audit, analytics)
+│   ├── advancements/ # The six advancement areas
+│   ├── analytics/    # Platform analytics dashboard
+│   ├── auth/         # Authentication (Firebase Auth)
+│   ├── bookmarks/    # Content bookmarking
+│   ├── collaboration/ # Co-authorship management
+│   ├── discussions/  # Threaded discussions per advancement
+│   ├── globe/        # 3D globe visualization (Three.js)
+│   ├── home/         # Landing page and user dashboard
+│   ├── library/      # Grand Library (resources + versioning)
+│   ├── moderation/   # Content flagging and moderation
+│   ├── newsroom/     # News aggregation + voting
+│   ├── notifications/ # Notification bell and service
+│   ├── onboarding/   # New user onboarding flow
+│   ├── peer-review/  # Peer review queue and submission
+│   ├── pool/         # The Pool (community treasury — placeholder)
+│   ├── profile/      # User profile and public profiles
+│   ├── spotlight/    # Spotlight nominations and voting
+│   ├── stats/        # Contribution streaks and heatmap
+│   ├── tree/         # The Tree (knowledge graph + node detail)
+│   └── vouch/        # Vouch system for Rep
+├── shared/           # Reusable UI components, hooks, and utilities
+│   ├── components/   # Layout, Toast, RepGate, Markdown, EmptyState, etc.
+│   ├── hooks/        # useSearch, useFocusTrap, useRealtimeQuery, usePageView, etc.
+│   └── utils/        # timeAgo, etc.
+└── lib/              # External service configuration + schemas
+    ├── firebase.ts        # Firebase initialization + App Check
     ├── firestore-schemas.ts # Zod document validators
-    └── rate-limit.ts # Rate limiting logic
+    └── rate-limit.ts      # Rate limiting logic (hourly/daily counters)
+
+functions/src/        # Cloud Functions (Admin SDK)
+└── index.ts          # Admin ops, email verification, rate limiting, session management
 ```
 
 - **`domain/`** is framework-agnostic. It should never import React or Firebase.
-- **`features/`** each own their UI and data access. Don't import across feature boundaries except through domain types.
+- **`features/`** each own their UI and data access. Cross-feature imports are allowed for shared services (e.g., `notification-service` is called by `peer-review-service`), but prefer going through domain types when possible.
 - **`shared/`** components, hooks, and utilities are generic and reusable.
 - **`lib/`** holds Firebase config, Zod schemas for Firestore reads, and rate limiting.
 

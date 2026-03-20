@@ -24,9 +24,14 @@ This is not a library or framework you install. It is a **platform** — a singl
 | **The Tree** | Visual knowledge graph per advancement. Ideas branch into sub-ideas, color-coded by status: green (proven), red (theoretical), black (disproved). Fuzzy search, node detail pages, lineage breadcrumbs. |
 | **The Grand Library** | Curated learning resources — articles, videos, papers, external sources — with version history, difficulty levels, and peer contributions. |
 | **The Newsroom** | Aggregated news and papers about each advancement. Community voting (hot/new/top sorting), fuzzy search, link submission. |
-| **The Pool** | Community-funded treasury. Maintenance first, remainder funds contributors and experiments. |
 | **Discussions** | Threaded conversations scoped to each advancement with pagination, editing, and deletion. |
-| **Notifications** | Real-time notification bell for replies, supports, vouches, flags, and rep changes. |
+| **Peer Review** | Formal review queue for Tree nodes and Library entries. Structured feedback (accuracy, clarity, novelty, evidence quality) with multi-stage workflow. |
+| **Achievements** | 13 badges across milestone, advancement, and special categories. Earned by contributing content and completing reviews. |
+| **Spotlights** | Community-nominated "Idea of the Week" per advancement. Weekly rotation, vote-driven. |
+| **Co-Authorship** | Invite collaborators to co-author Tree nodes or Library entries. |
+| **Contribution Streaks** | GitHub-style heatmap of daily contributions across all content types. |
+| **Analytics** | Admin dashboard with page view trends, user growth, content distribution, and moderation health metrics. Privacy-first: no cookies or PII. |
+| **Notifications** | Real-time notification bell for replies, supports, vouches, flags, rep changes, and peer review updates. |
 | **Bookmarks** | Save nodes, library entries, news links, and discussion threads for later. |
 | **Moderation** | Community flagging system with admin review panel. Content flags with reason categories and resolution workflow. |
 | **Reputation System** | Merit-based point system. Earn Rep through school email verification, vouches, contributions, and breakthroughs. Rate-limited writes prevent abuse. |
@@ -35,9 +40,9 @@ This is not a library or framework you install. It is a **platform** — a singl
 
 | Rep Range | Tier | Access |
 |-----------|------|--------|
-| 0-99 | Observer | Read access, supervised small contributions |
-| 100-2,999 | Contributor | Full contributions, ideas, Discord, voting |
-| 3,000+ | Moderator | Moderation tools, governance votes |
+| 0–99 | Observer | Read access, supervised small contributions |
+| 100–2,999 | Contributor | Full contributions, ideas, Discord, voting |
+| 3,000+ | Moderator | Moderation tools, peer review, governance votes |
 
 ---
 
@@ -71,7 +76,7 @@ To contribute code, you'll need a local development environment.
 
 ```bash
 git clone https://github.com/deadfighter10/TheGuild.git
-cd the-guild
+cd TheGuild
 bun install
 cp .env.example .env.local
 ```
@@ -91,7 +96,25 @@ bun run dev          # Terminal 2
 
 Add `VITE_USE_EMULATORS=true` to your `.env.local` when using emulators.
 
-If you need to connect to a real Firebase project instead, see [Firebase Configuration](#firebase-configuration) below.
+### Firebase Configuration
+
+To connect to a real Firebase project instead of emulators:
+
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication (Email/Password) and Firestore
+3. Copy your config values from Firebase Console > Project Settings > Your Apps
+4. Fill in the values in `.env.local`:
+
+```env
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
+```
+
+Remove `VITE_USE_EMULATORS=true` (or set it to `false`) to use the real project.
 
 ### Commands
 
@@ -100,7 +123,9 @@ bun run dev          # Start dev server (http://localhost:5173)
 bun run build        # Type-check + production build
 bun run preview      # Preview production build
 bun run test         # Run tests in watch mode
-bun run test:run     # Run tests once
+bun run test:run     # Run tests once (577 tests)
+bun run test:rules   # Run Firestore rules tests (requires emulators running)
+bun run test:coverage # Run tests with coverage report
 bun run lint         # Type-check without emitting
 ```
 
@@ -110,46 +135,61 @@ bun run lint         # Type-check without emitting
 
 ```
 src/
-├── domain/              # Business logic, types, and validation
-│   ├── advancement.ts   # Advancement definitions and themes
-│   ├── node.ts          # Tree node types and validation
-│   ├── reputation.ts    # Rep thresholds and gate functions
-│   ├── user.ts          # User types and tier logic
-│   ├── notification.ts  # Notification types and formatting
-│   ├── flag.ts          # Content flag types and validation
-│   ├── news-link.ts     # News link types and validation
-│   ├── discussion.ts    # Discussion types and validation
-│   ├── library-entry.ts # Library entry types and validation
-│   ├── bookmark.ts      # Bookmark types
-│   └── *.test.ts        # Co-located domain tests
-├── features/            # Feature modules (UI + services)
-│   ├── admin/           # Admin panel (CRUD for all content)
-│   ├── advancements/    # Advancement browsing and detail pages
-│   ├── auth/            # Authentication (Firebase Auth)
-│   ├── bookmarks/       # Content bookmarking
-│   ├── discussions/     # Threaded discussions per advancement
-│   ├── globe/           # 3D globe visualization (Three.js)
-│   ├── home/            # Landing page and dashboard
-│   ├── library/         # Grand Library (curated resources + versioning)
-│   ├── moderation/      # Content flagging and moderation
-│   ├── newsroom/        # News link aggregation and voting
-│   ├── notifications/   # Notification bell and service
-│   ├── onboarding/      # New user onboarding flow
-│   ├── pool/            # The Pool (community treasury)
-│   ├── profile/         # User profile and settings
-│   ├── tree/            # The Tree (knowledge graph + node detail)
-│   └── vouch/           # Vouch system for Rep
+├── domain/              # Pure business logic, types, and validation (no React/Firebase)
+│   ├── achievement.ts       # Achievement definitions and eligibility checks
+│   ├── advancement.ts       # The six advancements
+│   ├── analytics.ts         # Time range helpers and chart data types
+│   ├── bookmark.ts          # Bookmark types
+│   ├── collaborator.ts      # Co-authorship types and validation
+│   ├── contribution-stats.ts # Streak calculation and heatmap data
+│   ├── discussion.ts        # Thread/reply types and validation
+│   ├── flag.ts              # Content flag types and validation
+│   ├── library-entry.ts     # Library entry types and validation
+│   ├── news-link.ts         # News link types and validation
+│   ├── node.ts              # Tree node types and validation
+│   ├── notification.ts      # Notification types and formatting
+│   ├── peer-review.ts       # Peer review types, statuses, and validation
+│   ├── reputation.ts        # Rep thresholds and gate functions
+│   ├── spotlight.ts         # Spotlight types and week calculation
+│   ├── user.ts              # User types and tier logic
+│   ├── vouch.ts             # Vouch types and validation
+│   └── *.test.ts            # Co-located domain tests
+├── features/            # Feature modules (UI + service layer)
+│   ├── achievements/        # Achievement badges and awarding
+│   ├── admin/               # Admin panel (users, flags, audit, analytics)
+│   ├── analytics/           # Platform analytics dashboard
+│   ├── auth/                # Authentication (Firebase Auth)
+│   ├── bookmarks/           # Content bookmarking
+│   ├── collaboration/       # Co-authorship management
+│   ├── discussions/         # Threaded discussions per advancement
+│   ├── globe/               # 3D globe visualization (Three.js)
+│   ├── home/                # Landing page and user dashboard
+│   ├── library/             # Grand Library (resources + versioning)
+│   ├── moderation/          # Content flagging and moderation
+│   ├── newsroom/            # News link aggregation and voting
+│   ├── notifications/       # Notification bell and service
+│   ├── onboarding/          # New user onboarding flow
+│   ├── peer-review/         # Peer review queue and submission
+│   ├── pool/                # The Pool (community treasury — placeholder)
+│   ├── profile/             # User profile and public profiles
+│   ├── spotlight/           # Spotlight nominations and voting
+│   ├── stats/               # Contribution streaks and stats
+│   ├── tree/                # The Tree (knowledge graph + node detail)
+│   └── vouch/               # Vouch system for Rep
 ├── shared/              # Shared components and utilities
-│   ├── components/      # Layout, Icons, Toast, RepGate, Markdown, etc.
-│   ├── hooks/           # Reusable hooks (useSearch, useFocusTrap, useRealtimeQuery)
-│   └── utils/           # Utility functions (timeAgo, etc.)
+│   ├── components/          # Layout, Markdown, Toast, Skeleton, RepGate, etc.
+│   ├── hooks/               # useSearch, useFocusTrap, usePageView, useRealtimeQuery
+│   └── utils/               # timeAgo, etc.
 ├── lib/                 # External service configuration
-│   ├── firebase.ts      # Firebase initialization
-│   ├── firestore-schemas.ts  # Zod schemas for Firestore document validation
-│   └── rate-limit.ts    # Rate limiting (hourly/daily counters)
+│   ├── firebase.ts          # Firebase initialization + App Check
+│   ├── firestore-schemas.ts # Zod schemas for Firestore document validation
+│   └── rate-limit.ts        # Rate limiting (hourly/daily counters)
 ├── App.tsx              # Route configuration (lazy-loaded pages)
 ├── main.tsx             # Entry point
 └── index.css            # Tailwind base + custom styles
+
+functions/src/           # Cloud Functions (Admin SDK)
+└── index.ts             # Admin ops, email verification, rate limiting, session management
 ```
 
 ### Architecture
@@ -157,7 +197,8 @@ src/
 - **`domain/`** contains pure business logic with no framework dependencies. All validation functions are tested independently.
 - **`features/`** are self-contained modules. Each has its own components, service layer (Firestore calls), and page components.
 - **`shared/`** holds reusable UI components, custom hooks, and utility functions used across features.
-- **`lib/`** contains external service configuration, Zod schemas for Firestore document validation at read boundaries, and rate limiting.
+- **`lib/`** contains Firebase configuration, Zod schemas for Firestore document validation at read boundaries, and rate limiting.
+- **`functions/`** contains Cloud Functions that run server-side with Admin SDK privileges for operations that can't be trusted to the client (rep changes, admin actions, email verification bonuses).
 - Routes are lazy-loaded with `React.lazy` for code splitting.
 
 ---
@@ -170,11 +211,11 @@ src/
 | Language | TypeScript 5.7 (strict mode, all flags enabled) |
 | Build | Vite 6 |
 | Styling | Tailwind CSS 3.4 |
-| Backend | Firebase (Auth + Firestore + Cloud Functions) |
+| Backend | Firebase (Auth + Firestore + Cloud Functions v2) |
 | Validation | Zod 4 (Firestore read boundaries) |
 | Search | Fuse.js 7 (client-side fuzzy search) |
 | 3D | Three.js + React Three Fiber |
-| Testing | Vitest + Testing Library (370+ tests) |
+| Testing | Vitest 2.1 + Testing Library (57 test files, 577 tests) |
 | CI/CD | GitHub Actions (lint, test, build, deploy) |
 | Runtime | Bun (also works with Node.js + npm) |
 
@@ -185,11 +226,11 @@ src/
 Every push to `master` triggers the GitHub Actions pipeline:
 
 1. **Type-check** — `tsc --noEmit`
-2. **Tests** — `vitest run` (370+ tests)
+2. **Tests** — `vitest run` (577 tests)
 3. **Build** — Vite production build + Cloud Functions build
 4. **Deploy** — Firebase Hosting, Firestore rules, and Cloud Functions
 
-Pull requests run steps 1-3 automatically. Deployment only happens on merge to `master`.
+Pull requests run steps 1–3 automatically. Deployment only happens on merge to `master`.
 
 ---
 

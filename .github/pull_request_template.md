@@ -15,6 +15,7 @@ How was this implemented? Any notable design decisions?
 - [ ] Added/updated tests for new behavior
 - [ ] `bun run lint` passes
 - [ ] `bun run test:run` passes
+- [ ] `bun run test:rules` passes (if Firestore rules changed)
 - [ ] `bun run build` succeeds
 
 ## Screenshots

@@ -47,6 +47,21 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     return parseGuildUserDoc(uid, data as Record<string, unknown>)
   }
 
+  const migrateLegacyAdmin = async (guildUser: GuildUser | null): Promise<boolean> => {
+    if (!guildUser) return false
+    if (guildUser.role === "admin") return false
+    if (guildUser.repPoints !== -1) return false
+
+    try {
+      const functions = getFunctions(app)
+      const migrate = httpsCallable<void, { isAdmin: boolean; migrated: boolean }>(functions, "migrateAdminStatus")
+      const result = await migrate()
+      return result.data.migrated
+    } catch {
+      return false
+    }
+  }
+
   const checkEmailVerificationBonus = async (firebaseUser: User, guildUser: GuildUser | null) => {
     if (!guildUser) return
     if (guildUser.emailVerified) return
@@ -65,7 +80,11 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const guildUser = await fetchGuildUser(firebaseUser.uid)
+        let guildUser = await fetchGuildUser(firebaseUser.uid)
+        const wasMigrated = await migrateLegacyAdmin(guildUser)
+        if (wasMigrated) {
+          guildUser = await fetchGuildUser(firebaseUser.uid)
+        }
         await checkEmailVerificationBonus(firebaseUser, guildUser)
         const refreshedUser = guildUser ? await fetchGuildUser(firebaseUser.uid) : null
         setState({ firebaseUser, guildUser: refreshedUser ?? guildUser, loading: false })

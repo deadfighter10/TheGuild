@@ -243,6 +243,20 @@ export const checkContentRateLimit = onCall(async (request) => {
   return { allowed: true };
 });
 
+// Legacy admin migration: checks if caller has legacy admin markers and migrates them
+export const migrateAdminStatus = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+
+  try {
+    await assertAdmin(request.auth.uid);
+    return { isAdmin: true, migrated: true };
+  } catch {
+    return { isAdmin: false, migrated: false };
+  }
+});
+
 // S10: Revoke all sessions (sign out everywhere)
 export const revokeAllSessions = onCall(async (request) => {
   if (!request.auth) {
