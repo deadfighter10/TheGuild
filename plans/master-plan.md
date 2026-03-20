@@ -13,9 +13,10 @@
 4. [Security Posture](#security-posture)
 5. [Immediate Work — Security Hardening](#immediate-work--security-hardening)
 6. [Sprint 4: Platform Maturity](#sprint-4-platform-maturity)
-7. [Backlog](#backlog)
-8. [Future Phases](#future-phases)
-9. [Progress Summary](#progress-summary)
+7. [Sprint 5: Production Stabilization](#sprint-5-production-stabilization)
+8. [Backlog](#backlog)
+9. [Future Phases](#future-phases)
+10. [Progress Summary](#progress-summary)
 
 ---
 
@@ -463,6 +464,83 @@ Focus: reach, retention, and polish. Make the platform shareable, accessible off
 
 ---
 
+## Sprint 5: Production Stabilization
+
+> **Nothing ships until this sprint is green.** Every item here exists to prevent regressions, catch drift, and guarantee the platform works exactly as expected in production.
+
+### S5-1: Comprehensive E2E Test Suite
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 1 | **Critical path E2E tests** | Medium | Playwright tests covering: signup → onboarding → first contribution → support → vouch flow. Runs against Firebase emulators. |
+| 2 | **Auth flow E2E** | Small | Login, logout, session revocation, school email verification, legacy admin migration — all verified end-to-end |
+| 3 | **Admin flow E2E** | Small | Admin login → user management → content moderation → audit log verification |
+| 4 | **Destructive action E2E** | Small | Delete user, delete content, flag resolution — verify cascading state updates and UI feedback |
+
+### S5-2: Data Integrity & Validation
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 5 | **Firestore rules regression suite** | Small | Expand rules tests to cover every write path with both allowed and denied scenarios. Target: 100% rule branch coverage |
+| 6 | **Schema drift detection** | Small | CI step that validates all Firestore `parse*Doc` Zod schemas match the actual document shapes written by services. Catches silent data model changes |
+| 7 | **Seed data integrity check** | Small | Automated test that seeds a fresh emulator, runs all services, and verifies every collection has expected document structure |
+| 8 | **Rate limit verification** | Small | Integration tests proving both client-side and Firestore-level rate limits reject requests correctly at boundaries (10s interval, hourly/daily caps) |
+
+### S5-3: Error Handling & Resilience
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 9 | **ErrorBoundary coverage audit** | Small | Verify every route and lazy-loaded component is wrapped in an ErrorBoundary. Add missing boundaries. Test that errors render fallback UI, not white screens |
+| 10 | **Offline/network failure handling** | Small | Test behavior when Firestore goes offline mid-operation: pending writes, UI feedback, reconnection recovery. Verify no data corruption |
+| 11 | **Cloud Function failure modes** | Small | Test every Cloud Function with: missing auth, invalid input, Firestore unavailable, timeout. Verify error codes and client-side handling |
+| 12 | **Toast error coverage** | Small | Audit every `catch` block — verify all user-facing errors surface a toast or inline message, never fail silently |
+
+### S5-4: Security Regression Prevention
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 13 | **Auth bypass test suite** | Small | Automated tests attempting every Firestore write without auth, with wrong user, with insufficient Rep. Must all be denied |
+| 14 | **XSS regression tests** | Small | Render markdown with known XSS payloads (`<script>`, `javascript:` URLs, event handlers, nested encoding). Verify all are sanitized |
+| 15 | **CSP validation** | Small | Automated check that `firebase.json` headers match expected CSP policy. Alert on any loosening |
+| 16 | **Dependency audit gate** | Small | CI step running `npm audit` / `bun audit` — block deployment on high/critical vulnerabilities |
+
+### S5-5: Build & Deploy Safety
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 17 | **TypeScript strict compilation gate** | Small | CI enforces `tsc --noEmit` with zero errors, zero warnings. No `@ts-ignore`, no `any` leaks |
+| 18 | **Bundle size budget** | Small | Set max bundle size thresholds per chunk. CI fails if a change exceeds budget by >5%. Prevents accidental bloat |
+| 19 | **Lighthouse CI** | Small | Run Lighthouse in CI on key pages (home, advancement detail, profile). Enforce minimum scores: Performance 90+, Accessibility 95+, Best Practices 95+ |
+| 20 | **Preview deploy + smoke test** | Medium | Every PR deploys to a Firebase preview channel. Automated smoke test hits 5 critical routes and checks for 200 status + no console errors |
+| 21 | **Rollback runbook** | Small | Document exact steps to rollback: hosting (revert to previous version), Cloud Functions (redeploy previous), Firestore rules (revert rules version). Test the rollback process |
+
+### S5-6: Monitoring & Observability
+
+| # | Item | Effort | Description |
+|---|------|--------|-------------|
+| 22 | **Client error tracking** | Small | Integrate lightweight error reporter (e.g., Sentry free tier or custom Cloud Function). Capture unhandled exceptions + rejected promises with stack traces and user context (uid only) |
+| 23 | **Cloud Function monitoring** | Small | Firebase console alerts for: function errors >1%, latency >5s, cold start frequency. Document alert thresholds |
+| 24 | **Firestore usage alerts** | Small | Set budget alerts for reads/writes/deletes. Monitor for unexpected spikes that could indicate abuse or bugs |
+| 25 | **Uptime monitoring** | Small | External ping on `/` and `/api/health` (add simple health endpoint). Alert on downtime >2 minutes |
+
+### S5-7: Pre-Launch Checklist
+
+Before any production deployment, all of the following must be green:
+
+- [ ] `tsc --noEmit` passes with zero errors
+- [ ] All unit tests pass (`vitest run`)
+- [ ] All Firestore rules tests pass (`vitest run --config vitest.rules.config.ts`)
+- [ ] E2E critical path tests pass against emulators
+- [ ] Bundle size within budget
+- [ ] Lighthouse scores meet thresholds
+- [ ] `npm audit` / dependency check shows no high/critical issues
+- [ ] Preview deploy smoke test passes
+- [ ] Security regression suite passes (auth bypass, XSS, CSP)
+- [ ] Manual spot-check: signup, create idea, support idea, flag content, admin panel
+- [ ] Rollback tested within last 30 days
+
+---
+
 ## Backlog
 
 Features that add value but aren't blocking growth. Pull into sprints as capacity allows.
@@ -598,6 +676,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Sprint 3: Collaboration | COMPLETE — 5 features, 74 tests |
 | Platform Analytics | COMPLETE — anonymous + auth tracking, admin dashboard |
 | Security Hardening | COMPLETE |
-| **Sprint 4: Platform Maturity** | **NEXT** |
+| **Sprint 4: Platform Maturity** | **IN PROGRESS** — OG meta + ShareButton done, T2 component splits in progress |
+| **Sprint 5: Production Stabilization** | **NEXT** — E2E tests, data integrity, error resilience, security regression, build safety, monitoring |
 | Backlog (P3) | 9 items across 4 categories |
 | Future Phases (6–13) | 8 phases planned |
