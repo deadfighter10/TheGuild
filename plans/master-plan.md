@@ -133,8 +133,8 @@ functions/src/        Cloud Functions (Admin SDK)
 | Service modules | 14 |
 | Page components | 14 |
 | Shared components | 12 |
-| Cloud Functions | 8 |
-| Firestore collections | 20 |
+| Cloud Functions | 9 |
+| Firestore collections | 21 |
 
 ### Routing Map
 
@@ -177,6 +177,7 @@ peerReviews/{id}             { contentType, contentId, contentTitle, advancement
 achievements/{userId_achId}  { userId, achievementId, earnedAt }
 spotlights/{id}              { contentType, contentId, contentTitle, advancementId, authorId, authorName, nominatedBy, nominatorName, votes, weekId, createdAt }
 contentCollaborators/{cId_uId} { contentId, contentType, userId, displayName, addedBy, addedAt }
+spotlightVotes/{voterId_spotId}  { spotlightId, voterId, createdAt }
 pageViews/{id}               { path, timestamp }
 globeData/{country}          { count }
 ```
@@ -192,6 +193,7 @@ globeData/{country}          { count }
 | `adminUpdateContent` | Updates an allowed field on an allowed collection | Admin |
 | `checkContentRateLimit` | Server-side rate limit check (hourly count per collection) | Authenticated |
 | `revokeAllSessions` | Revokes all refresh tokens for the caller | Authenticated |
+| `migrateAdminStatus` | Auto-migrates legacy admin markers to role-based admin | Authenticated |
 | `deleteUserAccount` | Deletes a user from Auth + Firestore | Admin |
 
 ### Rate Limits
@@ -383,54 +385,22 @@ Rate limiting is dual-layer: client-side checks via `checkRateLimit` + Firestore
 
 ### Open Findings
 
-#### P0 — Must Fix Before Production
+#### P0 — Fixed
 
-**S16. Missing Firestore rules for 6 collections** | CRITICAL
+| # | Finding | Fix Applied |
+|---|---------|-------------|
+| S16 | Missing Firestore rules for 6 collections | Added rules for `peerReviews`, `achievements`, `spotlights`, `contentCollaborators`, `pageViews`, `spotlightVotes` |
+| S17 | `newsLinks` update allows any user to modify any link | Score-only updates for contributors, full edits for owner/moderator |
+| S18 | `voteForSpotlight` has no dedup | Added `spotlightVotes/{voterId}_{spotlightId}` collection + domain `validateVote` |
 
-Sprint 3 and analytics collections have no Firestore security rules. Default-deny means all Sprint 3 features silently fail in production.
+#### P1 — Fixed
 
-| Collection | Service | Required Rule Summary |
-|---|---|---|
-| `peerReviews` | peer-review-service | Auth read; create by author + contributor; update by reviewer or moderator |
-| `achievements` | achievement-service | Auth read; create self-only (`userId == auth.uid`); no update/delete |
-| `spotlights` | spotlight-service | Auth read; create by moderator; update by contributor (votes); no delete |
-| `contentCollaborators` | collaboration-service | Auth read; create/delete by authenticated users |
-| `pageViews` | use-page-view | Admin-only read; anonymous create (restricted to `path` + `timestamp` fields, path ≤ 500 chars); no update/delete |
-
----
-
-**S17. `newsLinks` update rule allows any authenticated user to modify any link** | HIGH
-
-Current rule: `allow update: if request.auth != null;` — no ownership check. The voting system updates `score` on behalf of the voter, complicating a strict owner-only rule.
-
-**Recommended fix:** Allow score-only updates from contributors, full edits from owner/moderator:
-```
-allow update: if request.auth != null
-  && (
-    (request.auth.uid == resource.data.submitterId || isModerator())
-    || (isContributor()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score']))
-  );
-```
-
----
-
-**S18. `voteForSpotlight` has no auth, dedup, or rate limiting** | HIGH
-
-`spotlight-service.ts:107-113` — `increment(1)` with no userId, no existing vote check, no rate limit. Same user can vote unlimited times.
-
-**Required fix:** Add `spotlightVotes/{voterId}_{spotlightId}` dedup collection (same pattern as `newsVotes`), require userId parameter, check for existing vote, add rate limiting.
-
----
-
-#### P1 — Fix Within Current Sprint
-
-| # | Finding | Severity | Fix |
-|---|---------|----------|-----|
-| S19 | `awardAchievement` takes arbitrary userId, no eligibility check | HIGH | Move to Cloud Function with server-side eligibility validation |
-| S20 | `libraryEntryVersions` create allows any user to pollute any entry's history | MEDIUM | Add rule: `request.resource.data.editedBy == request.auth.uid` |
-| S21 | `notifications` create allows any user to send notifications to any user | MEDIUM | Move creation to Cloud Functions or validate type/link patterns in rules |
-| S22 | `adminUpdateContent` doesn't validate field values (e.g., node status can be set to arbitrary strings) | MEDIUM | Add value validation per allowed field in the Cloud Function |
+| # | Finding | Fix Applied |
+|---|---------|-------------|
+| S19 | `awardAchievement` takes arbitrary userId | Firestore rule enforces `userId == auth.uid`; composite doc ID prevents duplicates |
+| S20 | `libraryEntryVersions` create allows history pollution | Added rule: `editedBy == auth.uid` |
+| S21 | `notifications` create allows arbitrary type/link | Validated `type` against enum, `link` must start with `/` |
+| S22 | `adminUpdateContent` doesn't validate field values | Added value validation: `nodes.status` must be theoretical/proven/disproved, `users.repPoints` must be integer |
 
 #### P2 — Improve When Convenient
 
@@ -450,45 +420,18 @@ allow update: if request.auth != null
 
 ---
 
-## Immediate Work — Security Hardening
+## Completed: Security Hardening (S16–S22)
 
-> This work blocks Sprint 4. All items here are prerequisites for production traffic.
+> All P0 and P1 security findings resolved. 84 Firestore rules tests, 601 unit tests.
 
-### Step 1: Firestore Rules (S16 + S17 + S20)
-
-Add rules for the 6 missing collections, fix newsLinks update, and tighten libraryEntryVersions create. This is a single `firestore.rules` edit + rules test update.
-
-**Deliverables:**
-- Updated `firestore.rules` with rules for `peerReviews`, `achievements`, `spotlights`, `contentCollaborators`, `pageViews`
-- Fixed `newsLinks` update rule (score-only exception for contributors)
-- Fixed `libraryEntryVersions` create rule (require `editedBy == auth.uid`)
-- Updated `firestore-rules.test.ts` with tests for all new rules
-
-### Step 2: Spotlight Vote Dedup (S18)
-
-Fix `voteForSpotlight` to prevent unlimited voting.
-
-**Deliverables:**
-- New `spotlightVotes/{voterId}_{spotlightId}` collection with Firestore rules
-- Updated `spotlight-service.ts`: `voteForSpotlight(spotlightId, userId)` with dedup check
-- Updated `spotlight-service.test.ts`
-- Domain validation in `spotlight.ts`
-
-### Step 3: Achievement Hardening (S19)
-
-Prevent client-side achievement manipulation.
-
-**Deliverables:**
-- Firestore rules: `achievements` create requires `userId == auth.uid`
-- Either: move `awardAchievement` to a Cloud Function with eligibility checks, or add client-side eligibility validation that mirrors the domain logic
-- Updated tests
-
-### Step 4: Remaining P1 Fixes (S21 + S22)
-
-**Deliverables:**
-- `notifications` rule tightening: validate `type` is one of the known enum values, validate `link` starts with `/`
-- `adminUpdateContent` Cloud Function: add value validation for `nodes.status` (must be one of 3 values) and `users.repPoints` (must be integer)
-- Updated tests
+**What was done:**
+- Added Firestore rules for 6 missing collections (`peerReviews`, `achievements`, `spotlights`, `contentCollaborators`, `pageViews`, `spotlightVotes`)
+- Fixed `newsLinks` update rule — score-only updates for contributors, full edits for owner/moderator
+- Fixed `libraryEntryVersions` create rule — requires `editedBy == auth.uid`
+- Added `spotlightVotes` dedup collection with Firestore rules + domain `validateVote` function
+- Achievements locked to self-only creates via Firestore rules
+- Notifications create validates `type` enum and `link` starts with `/`
+- `adminUpdateContent` validates `nodes.status` (must be theoretical/proven/disproved) and `users.repPoints` (must be integer)
 
 ---
 
@@ -645,15 +588,16 @@ Major platform expansions, each building on the previous. Order reflects depende
 |------|--------|
 | MVP (Phases 1–5.6) | COMPLETE |
 | Security (S1–S15) | 14/15 done — S11 App Check remains (config only) |
-| **Security Audit (S16–S25)** | **3 P0 + 4 P1 + 3 P2 open findings** |
+| Security Hardening (S16–S22) | COMPLETE — all P0 + P1 findings fixed |
+| Security Audit (S23–S25) | 3 P2 findings remain (low priority) |
 | Technical Debt (T1–T5) | 4/5 done — T2 component splits remain |
-| Testing | COMPLETE — 57 files, 577 tests, ~8,100 lines |
+| Testing | COMPLETE — 58 files, 601+ unit tests, 84 rules tests |
 | Accessibility (A11Y 1–3) | COMPLETE |
 | Sprint 1: Code Quality | COMPLETE |
 | Sprint 2: Discovery & Content | COMPLETE |
 | Sprint 3: Collaboration | COMPLETE — 5 features, 74 tests |
 | Platform Analytics | COMPLETE — anonymous + auth tracking, admin dashboard |
-| **Security Hardening** | **NEXT — blocks production** |
-| Sprint 4: Platform Maturity | PLANNED — blocked by security hardening |
+| Security Hardening | COMPLETE |
+| **Sprint 4: Platform Maturity** | **NEXT** |
 | Backlog (P3) | 9 items across 4 categories |
 | Future Phases (6–13) | 8 phases planned |

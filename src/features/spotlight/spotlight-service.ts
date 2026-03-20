@@ -104,10 +104,19 @@ export async function nominateForSpotlight(params: {
   return newDocRef.id
 }
 
-export async function voteForSpotlight(spotlightId: string): Promise<void> {
+export async function voteForSpotlight(params: {
+  readonly spotlightId: string
+  readonly voterId: string
+}): Promise<void> {
+  const voteDocId = `${params.voterId}_${params.spotlightId}`
   const batch = writeBatch(db)
-  batch.update(doc(db, "spotlights", spotlightId), {
+  batch.update(doc(db, "spotlights", params.spotlightId), {
     votes: increment(1),
+  })
+  batch.set(doc(db, "spotlightVotes", voteDocId), {
+    spotlightId: params.spotlightId,
+    voterId: params.voterId,
+    createdAt: serverTimestamp(),
   })
   await batch.commit()
 }

@@ -51,6 +51,31 @@ export function validateNomination(request: NominationRequest): ValidationResult
   return { valid: true }
 }
 
+type VoteRequest = {
+  readonly voterRep: number
+  readonly voterRole: UserRole
+  readonly voterId: string
+  readonly nominatedBy: string
+  readonly authorId: string
+  readonly hasExistingVote: boolean
+}
+
+export function validateVote(request: VoteRequest): ValidationResult {
+  if (request.hasExistingVote) {
+    return { valid: false, reason: "You have already voted on this spotlight" }
+  }
+
+  if (request.voterId === request.nominatedBy) {
+    return { valid: false, reason: "You cannot vote on your own nomination" }
+  }
+
+  if (!isAdmin(request.voterRole) && request.voterRep < REP_THRESHOLDS.contributorMin) {
+    return { valid: false, reason: "You need at least 100 Rep to vote" }
+  }
+
+  return { valid: true }
+}
+
 export function canNominate(rep: number, role: UserRole): boolean {
   return isAdmin(role) || rep >= REP_THRESHOLDS.moderatorMin
 }

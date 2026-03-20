@@ -95,13 +95,20 @@ describe("nominateForSpotlight", () => {
 })
 
 describe("voteForSpotlight", () => {
-  it("increments the vote count", async () => {
-    await voteForSpotlight("spotlight-1")
+  it("increments the vote count and creates a vote record", async () => {
+    await voteForSpotlight({ spotlightId: "spotlight-1", voterId: "voter-1" })
 
     expect(mockBatch.update).toHaveBeenCalledWith(
       expect.objectContaining({ __collection: "spotlights", __id: "spotlight-1" }),
       expect.objectContaining({
         votes: { __increment: 1 },
+      }),
+    )
+    expect(mockBatch.set).toHaveBeenCalledWith(
+      expect.objectContaining({ __collection: "spotlightVotes", __id: "voter-1_spotlight-1" }),
+      expect.objectContaining({
+        spotlightId: "spotlight-1",
+        voterId: "voter-1",
       }),
     )
     expect(mockBatch.commit).toHaveBeenCalled()

@@ -109,9 +109,11 @@ service cloud.firestore {
     }
 
     // Library entry versions: readable by authenticated, created alongside edits
+    // S20 fix: require editedBy == auth.uid to prevent history pollution
     match /libraryEntryVersions/{versionId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.editedBy == request.auth.uid;
       allow update, delete: if false;
     }
 
@@ -126,7 +128,13 @@ service cloud.firestore {
         && isContributor()
         && request.resource.data.title.size() <= 200
         && request.resource.data.url.size() <= 2000;
-      allow update: if request.auth != null;
+      // S17 fix: owner/moderator can fully update; contributors can only update score
+      allow update: if request.auth != null
+        && (
+          (request.auth.uid == resource.data.submitterId || isModerator())
+          || (isContributor()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score']))
+        );
       allow delete: if false;
     }
 
@@ -177,11 +185,14 @@ service cloud.firestore {
     }
 
     // Notifications: users can only read/update their own, any authenticated user can create
+    // S21 fix: validate type is a known enum, link starts with /
     match /notifications/{notifId} {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null
-        && request.resource.data.message.size() <= 500;
+        && request.resource.data.message.size() <= 500
+        && request.resource.data.type in ["reply", "support", "vouch", "flag", "rep_change", "status_change", "review"]
+        && request.resource.data.link.matches('^/.*');
       allow update: if request.auth != null
         && resource.data.userId == request.auth.uid;
       allow delete: if false;
@@ -207,6 +218,66 @@ service cloud.firestore {
         && request.resource.data.targetTitle.size() <= 200;
       allow delete: if request.auth != null
         && resource.data.userId == request.auth.uid;
+    }
+
+    // S16: Peer reviews — authenticated can read, contributors can create with own authorId
+    // Contributors can update (claim review, submit feedback)
+    match /peerReviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && isContributor();
+      allow update: if request.auth != null
+        && isContributor();
+      allow delete: if false;
+    }
+
+    // S16: Achievements — authenticated can read, users can create their own only
+    // Immutable once created (no update/delete)
+    match /achievements/{achievementId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // S16: Spotlights — authenticated can read, contributors can create with own nominatedBy
+    // Contributors can update (vote), no delete
+    match /spotlights/{spotlightId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.nominatedBy == request.auth.uid
+        && isContributor();
+      allow update: if request.auth != null
+        && isContributor();
+      allow delete: if false;
+    }
+
+    // S18: Spotlight votes — dedup via composite ID {voterId}_{spotlightId}
+    // Contributors can create with own voterId, one vote per spotlight
+    match /spotlightVotes/{voteId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.voterId == request.auth.uid
+        && isContributor();
+      allow update, delete: if false;
+    }
+
+    // S16: Content collaborators — authenticated can read and create/delete
+    // Immutable (no update)
+    match /contentCollaborators/{collabId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null;
+      allow update: if false;
+    }
+
+    // S16: Page views — anonymous create (privacy-first tracking)
+    // Admin-only read, no update/delete
+    match /pageViews/{viewId} {
+      allow read: if request.auth != null && isAdminUser();
+      allow create: if request.resource.data.path.size() <= 500;
+      allow update, delete: if false;
     }
 
     // S7 Phase 2: Rate limit tracking docs

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   validateNomination,
+  validateVote,
   canNominate,
   spotlightWeekId,
 } from "./spotlight"
@@ -92,6 +93,68 @@ describe("canNominate", () => {
   it("returns false for regular contributors", () => {
     expect(canNominate(100, "user")).toBe(false)
     expect(canNominate(2999, "user")).toBe(false)
+  })
+})
+
+describe("validateVote", () => {
+  it("returns valid for a contributor voting on someone else's spotlight", () => {
+    const result = validateVote({
+      voterRep: 100,
+      voterRole: "user",
+      voterId: "voter-1",
+      nominatedBy: "mod-1",
+      authorId: "user-1",
+      hasExistingVote: false,
+    })
+    expect(result).toEqual({ valid: true })
+  })
+
+  it("rejects when voter has already voted", () => {
+    const result = validateVote({
+      voterRep: 100,
+      voterRole: "user",
+      voterId: "voter-1",
+      nominatedBy: "mod-1",
+      authorId: "user-1",
+      hasExistingVote: true,
+    })
+    expect(result).toEqual({ valid: false, reason: "You have already voted on this spotlight" })
+  })
+
+  it("rejects when voter is the nominator", () => {
+    const result = validateVote({
+      voterRep: 100,
+      voterRole: "user",
+      voterId: "mod-1",
+      nominatedBy: "mod-1",
+      authorId: "user-1",
+      hasExistingVote: false,
+    })
+    expect(result).toEqual({ valid: false, reason: "You cannot vote on your own nomination" })
+  })
+
+  it("rejects observers", () => {
+    const result = validateVote({
+      voterRep: 50,
+      voterRole: "user",
+      voterId: "voter-1",
+      nominatedBy: "mod-1",
+      authorId: "user-1",
+      hasExistingVote: false,
+    })
+    expect(result).toEqual({ valid: false, reason: "You need at least 100 Rep to vote" })
+  })
+
+  it("allows admin to vote regardless of rep", () => {
+    const result = validateVote({
+      voterRep: 0,
+      voterRole: "admin",
+      voterId: "admin-1",
+      nominatedBy: "mod-1",
+      authorId: "user-1",
+      hasExistingVote: false,
+    })
+    expect(result).toEqual({ valid: true })
   })
 })
 

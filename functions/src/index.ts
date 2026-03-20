@@ -190,6 +190,19 @@ export const adminUpdateContent = onCall(async (request) => {
     throw new HttpsError("invalid-argument", `Cannot update '${field}' on '${collectionName}'`);
   }
 
+  // S22: Validate field values
+  if (collectionName === "nodes" && field === "status") {
+    const validStatuses = ["theoretical", "proven", "disproved"];
+    if (typeof value !== "string" || !validStatuses.includes(value)) {
+      throw new HttpsError("invalid-argument", `Invalid status value. Must be one of: ${validStatuses.join(", ")}`);
+    }
+  }
+  if (collectionName === "users" && field === "repPoints") {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      throw new HttpsError("invalid-argument", "repPoints must be an integer");
+    }
+  }
+
   await assertAdmin(request.auth.uid);
 
   await db.doc(`${collectionName}/${docId}`).update({ [field]: value });
