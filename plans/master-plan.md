@@ -160,6 +160,9 @@ functions/src/        Cloud Functions (Admin SDK)
 | `/library` | LibraryPage | Protected |
 | `/library/:id` | LibraryEntryPage | Protected |
 | `/newsroom` | NewsroomPage | Protected |
+| `/bounties` | BountyBoardPage | Protected |
+| `/bounties/new` | CreateBountyPage | Protected |
+| `/bounties/:id` | BountyDetailPage | Protected |
 | `/pool` | PoolPage | Protected |
 | `/auth` | AuthForm | Public (redirects if logged in) |
 | `/onboarding` | OnboardingPage | Onboarding (redirects if complete) |
@@ -192,6 +195,8 @@ spotlights/{id}              { contentType, contentId, contentTitle, advancement
 contentCollaborators/{cId_uId} { contentId, contentType, userId, displayName, addedBy, addedAt }
 spotlightVotes/{voterId_spotId}  { spotlightId, voterId, createdAt }
 pageViews/{id}               { path, timestamp }
+bounties/{id}                { posterId, posterName, title, description, advancementId, bountyType, difficulty, rewardAmount, status, deadline, claimWindowDays, currentHunterId, currentHunterName, claimedAt, claimCount, relatedContentIds, isSystemBounty, createdAt, updatedAt }
+bountySubmissions/{id}       { bountyId, hunterId, hunterName, summary, contentLinks, externalLinks, revisionNumber, status, rejectionFeedback, submittedAt, reviewedAt }
 globeData/{country}          { count }
 ```
 
@@ -208,6 +213,7 @@ globeData/{country}          { count }
 | `revokeAllSessions` | Revokes all refresh tokens for the caller | Authenticated |
 | `migrateAdminStatus` | Auto-migrates legacy admin markers to role-based admin | Authenticated |
 | `deleteUserAccount` | Deletes a user from Auth + Firestore | Admin |
+| `completeBounty` | Mints rep for hunter + poster bonus on accepted submission | Authenticated (poster) |
 
 ### Rate Limits
 
@@ -220,6 +226,7 @@ globeData/{country}          { count }
 | `libraryEntries` | 3 | 10 |
 | `flags` | 10 | 30 |
 | `peerReviews` | 5 | 15 |
+| `bounties` | 5 | 15 |
 | `pageViews` (anon) | 120/hr | — |
 
 Rate limiting is dual-layer: client-side checks via `checkRateLimit` + Firestore rules enforce a 10-second minimum interval via `rateLimits/{userId}_{collection}` docs.
@@ -726,7 +733,7 @@ Major platform expansions, each building on the previous. Order reflects depende
 | Security Hardening | COMPLETE |
 | Sprint 4: Platform Maturity | COMPLETE — OG meta, ShareButton, T2 component splits, PWA + FCM, Email Digest, Research Paper Import |
 | **Sprint 5: Production Stabilization** | **COMPLETE** — All 6 phases done. 808 unit tests across 71 files. E2E infra (Playwright), security regression tests (XSS, CSP, auth bypass), schema drift detection, rate limit boundary tests, RouteErrorBoundary, OfflineBanner, Cloud Function error mode tests, toast coverage audit, CI gates (bundle size, Lighthouse, dependency audit, preview deploy), error tracking, monitoring docs |
-| Sprint 6: The Bounty Board | PLANNED — design complete (`plans/bounty-system.md`), 3 implementation phases |
+| Sprint 6: The Bounty Board | **Phase 6.1 COMPLETE** — Domain types + validation (7 increments, 64 tests), Zod schemas (2 increments, 13 tests), service layer (11 increments, 34 tests), Cloud Function `completeBounty` (9 tests), Firestore rules, bounty notifications, BountyBoardPage, BountyDetailPage, CreateBountyPage, routes + nav. Phases 6.2 (Safety) and 6.3 (Engagement) remain |
 | Reputation System Revision | DESIGNED — 11-tier system (`plans/reputation-system-revision.md`), not yet implemented |
 | Backlog (P3) | 9 items across 4 categories |
 | Future Phases (6–13) | 8 phases planned |

@@ -9,6 +9,7 @@ import type { LibraryEntry } from "@/domain/library-entry"
 import type { EntryVersion } from "@/domain/library-entry"
 import type { PeerReview } from "@/domain/peer-review"
 import { REP_REASONS, type RepEvent, type RepReason } from "@/domain/reputation"
+import type { Bounty, BountySubmission } from "@/domain/bounty"
 
 const firestoreTimestamp = z
   .any()
@@ -134,7 +135,7 @@ export function parseContentFlagDoc(id: string, data: Record<string, unknown>): 
   return { id, ...result.data } satisfies ContentFlag
 }
 
-const notificationTypeSchema = z.enum(["reply", "support", "vouch", "flag", "rep_change", "status_change", "review"])
+const notificationTypeSchema = z.enum(["reply", "support", "vouch", "flag", "rep_change", "status_change", "review", "bounty_claimed", "bounty_submitted", "bounty_accepted", "bounty_rejected"])
 
 const notificationDocSchema = z.object({
   userId: z.string(),
@@ -299,4 +300,64 @@ export function parseRepEventDoc(id: string, data: Record<string, unknown>): Rep
   }
   const { reason, ...rest } = result.data
   return { id, ...rest, reason: reason as RepReason } satisfies RepEvent
+}
+
+const bountyTypeSchema = z.enum(["research", "writing", "review", "data", "discussion", "translation", "curation"])
+const bountyDifficultySchema = z.enum(["newcomer", "standard", "advanced", "expert"])
+const bountyStatusSchema = z.enum(["draft", "open", "claimed", "submitted", "accepted", "rejected", "abandoned", "expired", "cancelled"])
+
+const bountyDocSchema = z.object({
+  posterId: z.string(),
+  posterName: z.string(),
+  title: z.string(),
+  description: z.string(),
+  advancementId: z.nullable(z.string()).optional().default(null),
+  bountyType: bountyTypeSchema,
+  difficulty: bountyDifficultySchema,
+  rewardAmount: z.number(),
+  status: bountyStatusSchema,
+  deadline: optionalFirestoreTimestamp,
+  claimWindowDays: z.number(),
+  currentHunterId: z.nullable(z.string()).optional().default(null),
+  currentHunterName: z.nullable(z.string()).optional().default(null),
+  claimedAt: optionalFirestoreTimestamp,
+  claimCount: z.number().optional().default(0),
+  relatedContentIds: z.array(z.string()).optional().default([]),
+  isSystemBounty: z.boolean().optional().default(false),
+  createdAt: firestoreTimestamp,
+  updatedAt: firestoreTimestamp,
+})
+
+export function parseBountyDoc(id: string, data: Record<string, unknown>): Bounty | null {
+  const result = bountyDocSchema.safeParse(data)
+  if (!result.success) {
+    console.error(`Invalid Bounty doc ${id}:`, result.error.message)
+    return null
+  }
+  return { id, ...result.data } satisfies Bounty
+}
+
+const submissionStatusSchema = z.enum(["pending", "accepted", "rejected"])
+
+const bountySubmissionDocSchema = z.object({
+  bountyId: z.string(),
+  hunterId: z.string(),
+  hunterName: z.string(),
+  summary: z.string(),
+  contentLinks: z.array(z.string()).optional().default([]),
+  externalLinks: z.array(z.string()).optional().default([]),
+  revisionNumber: z.number(),
+  status: submissionStatusSchema,
+  rejectionFeedback: z.nullable(z.string()).optional().default(null),
+  submittedAt: firestoreTimestamp,
+  reviewedAt: optionalFirestoreTimestamp,
+})
+
+export function parseBountySubmissionDoc(id: string, data: Record<string, unknown>): BountySubmission | null {
+  const result = bountySubmissionDocSchema.safeParse(data)
+  if (!result.success) {
+    console.error(`Invalid BountySubmission doc ${id}:`, result.error.message)
+    return null
+  }
+  return { id, ...result.data } satisfies BountySubmission
 }

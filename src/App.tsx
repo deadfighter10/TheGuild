@@ -21,6 +21,9 @@ const PoolPage = lazy(() => import("@/features/pool/PoolPage").then((m) => ({ de
 const AdminPage = lazy(() => import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })))
 const PublicProfilePage = lazy(() => import("@/features/profile/PublicProfilePage").then((m) => ({ default: m.PublicProfilePage })))
 const NodeDetailPage = lazy(() => import("@/features/tree/NodeDetailPage").then((m) => ({ default: m.NodeDetailPage })))
+const BountyBoardPage = lazy(() => import("@/features/bounties/BountyBoardPage").then((m) => ({ default: m.BountyBoardPage })))
+const BountyDetailPage = lazy(() => import("@/features/bounties/BountyDetailPage").then((m) => ({ default: m.BountyDetailPage })))
+const CreateBountyPage = lazy(() => import("@/features/bounties/CreateBountyPage").then((m) => ({ default: m.CreateBountyPage })))
 
 function PageLoader() {
   return (
@@ -92,6 +95,9 @@ export function App() {
               <Route path="/library" element={<RouteErrorBoundary><ProtectedRoute><LibraryPage /></ProtectedRoute></RouteErrorBoundary>} />
               <Route path="/library/:id" element={<RouteErrorBoundary><ProtectedRoute><LibraryEntryPage /></ProtectedRoute></RouteErrorBoundary>} />
               <Route path="/newsroom" element={<RouteErrorBoundary><ProtectedRoute><NewsroomPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/bounties" element={<RouteErrorBoundary><ProtectedRoute><BountyBoardPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/bounties/new" element={<RouteErrorBoundary><ProtectedRoute><CreateBountyPage /></ProtectedRoute></RouteErrorBoundary>} />
+              <Route path="/bounties/:id" element={<RouteErrorBoundary><ProtectedRoute><BountyDetailPage /></ProtectedRoute></RouteErrorBoundary>} />
               <Route path="/pool" element={<RouteErrorBoundary><ProtectedRoute><PoolPage /></ProtectedRoute></RouteErrorBoundary>} />
               <Route
                 path="/auth"

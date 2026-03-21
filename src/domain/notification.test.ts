@@ -53,6 +53,42 @@ describe("formatNotificationMessage", () => {
     })
     expect(msg).toBe('Your idea "CRISPR Approach" status was changed')
   })
+
+  it("formats bounty_claimed notification", () => {
+    const msg = formatNotificationMessage({
+      type: "bounty_claimed",
+      actorName: "HunterX",
+      targetTitle: "Summarize papers",
+    })
+    expect(msg).toBe('HunterX claimed your bounty "Summarize papers"')
+  })
+
+  it("formats bounty_submitted notification", () => {
+    const msg = formatNotificationMessage({
+      type: "bounty_submitted",
+      actorName: "HunterX",
+      targetTitle: "Summarize papers",
+    })
+    expect(msg).toBe('HunterX submitted work on "Summarize papers"')
+  })
+
+  it("formats bounty_accepted notification", () => {
+    const msg = formatNotificationMessage({
+      type: "bounty_accepted",
+      actorName: "Dr. Chen",
+      targetTitle: "Summarize papers",
+    })
+    expect(msg).toBe('Your work on "Summarize papers" was accepted!')
+  })
+
+  it("formats bounty_rejected notification", () => {
+    const msg = formatNotificationMessage({
+      type: "bounty_rejected",
+      actorName: "Dr. Chen",
+      targetTitle: "Summarize papers",
+    })
+    expect(msg).toBe('Your submission on "Summarize papers" needs revision')
+  })
 })
 
 describe("notificationLink", () => {
@@ -81,5 +117,20 @@ describe("notificationLink", () => {
 
   it("falls back to home when no advancementId", () => {
     expect(notificationLink({ type: "reply" })).toBe("/")
+  })
+
+  it("links bounty notifications to bounty page", () => {
+    expect(notificationLink({ type: "bounty_claimed", targetId: "bounty-1" }))
+      .toBe("/bounties/bounty-1")
+    expect(notificationLink({ type: "bounty_submitted", targetId: "bounty-1" }))
+      .toBe("/bounties/bounty-1")
+    expect(notificationLink({ type: "bounty_accepted", targetId: "bounty-1" }))
+      .toBe("/bounties/bounty-1")
+    expect(notificationLink({ type: "bounty_rejected", targetId: "bounty-1" }))
+      .toBe("/bounties/bounty-1")
+  })
+
+  it("bounty notifications fall back to /bounties when no targetId", () => {
+    expect(notificationLink({ type: "bounty_claimed" })).toBe("/bounties")
   })
 })

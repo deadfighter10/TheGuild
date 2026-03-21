@@ -191,7 +191,7 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null
         && request.resource.data.message.size() <= 500
-        && request.resource.data.type in ["reply", "support", "vouch", "flag", "rep_change", "status_change", "review"]
+        && request.resource.data.type in ["reply", "support", "vouch", "flag", "rep_change", "status_change", "review", "bounty_claimed", "bounty_submitted", "bounty_accepted", "bounty_rejected"]
         && request.resource.data.link.matches('^/.*');
       allow update: if request.auth != null
         && resource.data.userId == request.auth.uid;
@@ -278,6 +278,34 @@ service cloud.firestore {
       allow read: if request.auth != null && isAdminUser();
       allow create: if request.resource.data.path.size() <= 500;
       allow update, delete: if false;
+    }
+
+    // S6: Bounties — authenticated can read
+    // Contributors can create with own posterId
+    // Poster can update own draft/open bounties, contributors can update (for claiming)
+    // Delete only via Cloud Functions
+    match /bounties/{bountyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.posterId == request.auth.uid
+        && isContributor()
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.description.size() <= 5000;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.posterId || isContributor());
+      allow delete: if false;
+    }
+
+    // S6: Bounty submissions — authenticated can read
+    // Hunter can create with own hunterId, summary size limits
+    // Hunter or poster can update (for review)
+    match /bountySubmissions/{submissionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.hunterId == request.auth.uid
+        && request.resource.data.summary.size() <= 2000;
+      allow update: if request.auth != null;
+      allow delete: if false;
     }
 
     // S7 Phase 2: Rate limit tracking docs

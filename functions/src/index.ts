@@ -304,6 +304,79 @@ export const deleteUserAccount = onCall(async (request) => {
   return { success: true };
 });
 
+// S6: Complete bounty — atomically mint rep for hunter + poster bonus
+const POSTER_BONUSES: Record<string, number> = {
+  newcomer: 3,
+  standard: 5,
+  advanced: 7,
+  expert: 10,
+};
+
+export const completeBounty = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+
+  const bountyId = request.data?.bountyId as string | undefined;
+  const submissionId = request.data?.submissionId as string | undefined;
+
+  if (!bountyId || typeof bountyId !== "string") {
+    throw new HttpsError("invalid-argument", "bountyId is required");
+  }
+  if (!submissionId || typeof submissionId !== "string") {
+    throw new HttpsError("invalid-argument", "submissionId is required");
+  }
+
+  const bountyDoc = await db.doc(`bounties/${bountyId}`).get();
+  if (!bountyDoc.exists) {
+    throw new HttpsError("not-found", "Bounty not found");
+  }
+
+  const bountyData = bountyDoc.data()!;
+
+  if (bountyData["posterId"] !== request.auth.uid) {
+    throw new HttpsError("permission-denied", "Only the poster can complete a bounty");
+  }
+
+  // Idempotency: if already accepted, return early
+  if (bountyData["status"] === "accepted") {
+    return { success: true, alreadyCompleted: true };
+  }
+
+  if (bountyData["status"] !== "submitted") {
+    throw new HttpsError("failed-precondition", "Bounty must be in submitted state");
+  }
+
+  const subDoc = await db.doc(`bountySubmissions/${submissionId}`).get();
+  if (!subDoc.exists) {
+    throw new HttpsError("not-found", "Submission not found");
+  }
+
+  const subData = subDoc.data()!;
+  const hunterId = subData["hunterId"] as string;
+  const rewardAmount = bountyData["rewardAmount"] as number;
+  const difficulty = bountyData["difficulty"] as string;
+  const posterBonus = POSTER_BONUSES[difficulty] ?? 0;
+
+  // Atomically: update submission, bounty, hunter rep, poster rep
+  await db.doc(`bountySubmissions/${submissionId}`).update({
+    status: "accepted",
+    reviewedAt: FieldValue.serverTimestamp(),
+  });
+  await db.doc(`bounties/${bountyId}`).update({
+    status: "accepted",
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await db.doc(`users/${hunterId}`).update({
+    repPoints: FieldValue.increment(rewardAmount),
+  });
+  await db.doc(`users/${bountyData["posterId"]}`).update({
+    repPoints: FieldValue.increment(posterBonus),
+  });
+
+  return { success: true, alreadyCompleted: false };
+});
+
 // Email digest: update user preferences
 export const updateDigestPreferences = onCall(async (request) => {
   if (!request.auth) {

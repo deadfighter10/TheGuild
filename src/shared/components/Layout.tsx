@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { path: "/advancements", label: "Advancements" },
   { path: "/library", label: "Library" },
   { path: "/newsroom", label: "Newsroom" },
+  { path: "/bounties", label: "Bounties" },
   { path: "/pool", label: "The Pool" },
 ] as const
 
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { label: "All Advancements", path: "/advancements" },
   { label: "Grand Library", path: "/library" },
   { label: "Newsroom", path: "/newsroom" },
+  { label: "Bounties", path: "/bounties" },
   { label: "The Pool", path: "/pool" },
   { label: "Profile", path: "/profile" },
 ]

@@ -6,6 +6,10 @@ export type NotificationType =
   | "rep_change"
   | "status_change"
   | "review"
+  | "bounty_claimed"
+  | "bounty_submitted"
+  | "bounty_accepted"
+  | "bounty_rejected"
 
 export type Notification = {
   readonly id: string
@@ -37,6 +41,14 @@ export function formatNotificationMessage(params: {
       return `Your idea "${params.targetTitle}" status was changed`
     case "review":
       return `Your content "${params.targetTitle}" has a peer review update`
+    case "bounty_claimed":
+      return `${params.actorName} claimed your bounty "${params.targetTitle}"`
+    case "bounty_submitted":
+      return `${params.actorName} submitted work on "${params.targetTitle}"`
+    case "bounty_accepted":
+      return `Your work on "${params.targetTitle}" was accepted!`
+    case "bounty_rejected":
+      return `Your submission on "${params.targetTitle}" needs revision`
   }
 }
 
@@ -57,5 +69,10 @@ export function notificationLink(params: {
     case "flag":
     case "review":
       return params.advancementId ? `/advancements/${params.advancementId}` : "/"
+    case "bounty_claimed":
+    case "bounty_submitted":
+    case "bounty_accepted":
+    case "bounty_rejected":
+      return params.targetId ? `/bounties/${params.targetId}` : "/bounties"
   }
 }

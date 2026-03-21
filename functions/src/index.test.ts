@@ -58,6 +58,7 @@ vi.mock("firebase-admin/firestore", () => ({
   }),
   FieldValue: {
     increment: (n: number) => ({ __increment: n }),
+    serverTimestamp: () => ({ __serverTimestamp: true }),
   },
   Timestamp: {
     fromDate: (d: Date) => d,
@@ -458,5 +459,141 @@ describe("updateDigestPreferences", () => {
     } catch (e) {
       expectHttpsError(e, "not-found");
     }
+  });
+});
+
+describe("completeBounty", () => {
+  const fn = getFunction("completeBounty");
+
+  it("throws unauthenticated when no auth", async () => {
+    try {
+      await fn({ auth: null, data: {} });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "unauthenticated");
+    }
+  });
+
+  it("throws invalid-argument when bountyId missing", async () => {
+    try {
+      await fn({ auth: { uid: "poster-1" }, data: {} });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "invalid-argument");
+    }
+  });
+
+  it("throws invalid-argument when submissionId missing", async () => {
+    try {
+      await fn({ auth: { uid: "poster-1" }, data: { bountyId: "b1" } });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "invalid-argument");
+    }
+  });
+
+  it("throws not-found when bounty does not exist", async () => {
+    mockDocGet.mockResolvedValueOnce({ exists: false });
+    try {
+      await fn({
+        auth: { uid: "poster-1" },
+        data: { bountyId: "b1", submissionId: "s1" },
+      });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "not-found");
+    }
+  });
+
+  it("throws permission-denied when caller is not the poster", async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ posterId: "poster-1", status: "submitted", difficulty: "newcomer", rewardAmount: 50 }),
+    });
+    try {
+      await fn({
+        auth: { uid: "not-poster" },
+        data: { bountyId: "b1", submissionId: "s1" },
+      });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "permission-denied");
+    }
+  });
+
+  it("returns early if bounty is already accepted (idempotent)", async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ posterId: "poster-1", status: "accepted", difficulty: "newcomer", rewardAmount: 50 }),
+    });
+    const result = await fn({
+      auth: { uid: "poster-1" },
+      data: { bountyId: "b1", submissionId: "s1" },
+    });
+    expect(result).toEqual({ success: true, alreadyCompleted: true });
+    expect(mockDocUpdate).not.toHaveBeenCalled();
+  });
+
+  it("throws failed-precondition when bounty is not in submitted state", async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ posterId: "poster-1", status: "open", difficulty: "newcomer", rewardAmount: 50 }),
+    });
+    try {
+      await fn({
+        auth: { uid: "poster-1" },
+        data: { bountyId: "b1", submissionId: "s1" },
+      });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "failed-precondition");
+    }
+  });
+
+  it("throws not-found when submission does not exist", async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ posterId: "poster-1", status: "submitted", difficulty: "newcomer", rewardAmount: 50 }),
+      })
+      .mockResolvedValueOnce({ exists: false });
+    try {
+      await fn({
+        auth: { uid: "poster-1" },
+        data: { bountyId: "b1", submissionId: "s1" },
+      });
+      expect.fail("should throw");
+    } catch (e) {
+      expectHttpsError(e, "not-found");
+    }
+  });
+
+  it("completes bounty: updates submission, bounty, and mints rep", async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          posterId: "poster-1",
+          status: "submitted",
+          difficulty: "newcomer",
+          rewardAmount: 50,
+          currentHunterId: "hunter-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          bountyId: "b1",
+          hunterId: "hunter-1",
+          status: "pending",
+        }),
+      });
+    const result = await fn({
+      auth: { uid: "poster-1" },
+      data: { bountyId: "b1", submissionId: "s1" },
+    });
+    expect(result).toEqual({ success: true, alreadyCompleted: false });
+    // Should have called update 4 times: submission, bounty, hunter rep, poster rep
+    expect(mockDocUpdate).toHaveBeenCalledTimes(4);
   });
 });

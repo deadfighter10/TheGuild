@@ -11,6 +11,8 @@ import {
   parseEntryVersionDoc,
   parsePeerReviewDoc,
   parseRepEventDoc,
+  parseBountyDoc,
+  parseBountySubmissionDoc,
 } from "./firestore-schemas"
 
 const fakeTimestamp = { toDate: () => new Date("2025-01-01T00:00:00Z") }
@@ -591,5 +593,186 @@ describe("parseRepEventDoc", () => {
       expect(result).not.toBeNull()
       expect(result?.reason).toBe(reason)
     }
+  })
+})
+
+describe("parseBountyDoc", () => {
+  const validBountyData = {
+    posterId: "user-1",
+    posterName: "Dr. Chen",
+    title: "Summarize 3 recent papers",
+    description: "Read three 2025-2026 papers on telomere extension.",
+    advancementId: "telomerase",
+    bountyType: "research",
+    difficulty: "newcomer",
+    rewardAmount: 50,
+    status: "draft",
+    deadline: null,
+    claimWindowDays: 3,
+    currentHunterId: null,
+    currentHunterName: null,
+    claimedAt: null,
+    claimCount: 0,
+    relatedContentIds: [],
+    isSystemBounty: false,
+    createdAt: fakeTimestamp,
+    updatedAt: fakeTimestamp,
+  }
+
+  it("parses a valid bounty document", () => {
+    const result = parseBountyDoc("bounty-1", validBountyData)
+    expect(result).toEqual({
+      id: "bounty-1",
+      posterId: "user-1",
+      posterName: "Dr. Chen",
+      title: "Summarize 3 recent papers",
+      description: "Read three 2025-2026 papers on telomere extension.",
+      advancementId: "telomerase",
+      bountyType: "research",
+      difficulty: "newcomer",
+      rewardAmount: 50,
+      status: "draft",
+      deadline: null,
+      claimWindowDays: 3,
+      currentHunterId: null,
+      currentHunterName: null,
+      claimedAt: null,
+      claimCount: 0,
+      relatedContentIds: [],
+      isSystemBounty: false,
+      createdAt: new Date("2025-01-01T00:00:00Z"),
+      updatedAt: new Date("2025-01-01T00:00:00Z"),
+    })
+  })
+
+  it("handles Firestore timestamps for deadline and claimedAt", () => {
+    const result = parseBountyDoc("bounty-2", {
+      ...validBountyData,
+      status: "claimed",
+      deadline: fakeTimestamp,
+      currentHunterId: "hunter-1",
+      currentHunterName: "HunterX",
+      claimedAt: fakeTimestamp,
+    })
+    expect(result?.deadline).toEqual(new Date("2025-01-01T00:00:00Z"))
+    expect(result?.claimedAt).toEqual(new Date("2025-01-01T00:00:00Z"))
+  })
+
+  it("defaults optional fields", () => {
+    const result = parseBountyDoc("bounty-3", {
+      posterId: "user-1",
+      posterName: "Dr. Chen",
+      title: "Test",
+      description: "Desc",
+      bountyType: "writing",
+      difficulty: "standard",
+      rewardAmount: 100,
+      status: "open",
+      claimWindowDays: 7,
+      createdAt: fakeTimestamp,
+      updatedAt: fakeTimestamp,
+    })
+    expect(result?.advancementId).toBeNull()
+    expect(result?.deadline).toBeNull()
+    expect(result?.currentHunterId).toBeNull()
+    expect(result?.currentHunterName).toBeNull()
+    expect(result?.claimedAt).toBeNull()
+    expect(result?.claimCount).toBe(0)
+    expect(result?.relatedContentIds).toEqual([])
+    expect(result?.isSystemBounty).toBe(false)
+  })
+
+  it("returns null for invalid bountyType", () => {
+    expect(parseBountyDoc("bounty-1", { ...validBountyData, bountyType: "invalid" })).toBeNull()
+  })
+
+  it("returns null for invalid difficulty", () => {
+    expect(parseBountyDoc("bounty-1", { ...validBountyData, difficulty: "impossible" })).toBeNull()
+  })
+
+  it("returns null for invalid status", () => {
+    expect(parseBountyDoc("bounty-1", { ...validBountyData, status: "nonexistent" })).toBeNull()
+  })
+
+  it("returns null for missing required fields", () => {
+    expect(parseBountyDoc("bounty-1", { posterId: "user-1" })).toBeNull()
+  })
+})
+
+describe("parseBountySubmissionDoc", () => {
+  const validSubmissionData = {
+    bountyId: "bounty-1",
+    hunterId: "hunter-1",
+    hunterName: "HunterX",
+    summary: "I summarized the three papers as requested.",
+    contentLinks: ["/advancements/telomerase/library/entry-1"],
+    externalLinks: ["https://example.com/paper1"],
+    revisionNumber: 0,
+    status: "pending",
+    rejectionFeedback: null,
+    submittedAt: fakeTimestamp,
+    reviewedAt: null,
+  }
+
+  it("parses a valid submission document", () => {
+    const result = parseBountySubmissionDoc("sub-1", validSubmissionData)
+    expect(result).toEqual({
+      id: "sub-1",
+      bountyId: "bounty-1",
+      hunterId: "hunter-1",
+      hunterName: "HunterX",
+      summary: "I summarized the three papers as requested.",
+      contentLinks: ["/advancements/telomerase/library/entry-1"],
+      externalLinks: ["https://example.com/paper1"],
+      revisionNumber: 0,
+      status: "pending",
+      rejectionFeedback: null,
+      submittedAt: new Date("2025-01-01T00:00:00Z"),
+      reviewedAt: null,
+    })
+  })
+
+  it("handles Firestore timestamp for reviewedAt", () => {
+    const result = parseBountySubmissionDoc("sub-2", {
+      ...validSubmissionData,
+      status: "accepted",
+      reviewedAt: fakeTimestamp,
+    })
+    expect(result?.reviewedAt).toEqual(new Date("2025-01-01T00:00:00Z"))
+  })
+
+  it("parses a rejected submission with feedback", () => {
+    const result = parseBountySubmissionDoc("sub-3", {
+      ...validSubmissionData,
+      status: "rejected",
+      rejectionFeedback: "Needs more detail on methodology comparison.",
+      reviewedAt: fakeTimestamp,
+    })
+    expect(result?.status).toBe("rejected")
+    expect(result?.rejectionFeedback).toBe("Needs more detail on methodology comparison.")
+  })
+
+  it("defaults optional array fields", () => {
+    const result = parseBountySubmissionDoc("sub-4", {
+      bountyId: "bounty-1",
+      hunterId: "hunter-1",
+      hunterName: "HunterX",
+      summary: "Work done.",
+      revisionNumber: 0,
+      status: "pending",
+      submittedAt: fakeTimestamp,
+    })
+    expect(result?.contentLinks).toEqual([])
+    expect(result?.externalLinks).toEqual([])
+    expect(result?.rejectionFeedback).toBeNull()
+    expect(result?.reviewedAt).toBeNull()
+  })
+
+  it("returns null for invalid status", () => {
+    expect(parseBountySubmissionDoc("sub-1", { ...validSubmissionData, status: "invalid" })).toBeNull()
+  })
+
+  it("returns null for missing required fields", () => {
+    expect(parseBountySubmissionDoc("sub-1", { bountyId: "bounty-1" })).toBeNull()
   })
 })

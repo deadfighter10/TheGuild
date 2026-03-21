@@ -24,6 +24,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   libraryEntries: { perHour: 3, perDay: 10 },
   flags: { perHour: 10, perDay: 30 },
   peerReviews: { perHour: 5, perDay: 15 },
+  bounties: { perHour: 5, perDay: 15 },
 }
 
 type RateLimitAllowed = { readonly allowed: true }
